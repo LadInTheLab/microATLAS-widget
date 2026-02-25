@@ -2,7 +2,7 @@
 
 An embeddable microscopy image viewer for [OME-Zarr](https://ngff.openmicroscopy.org/) data, built for scientific publications and interactive documents. Renders multi-channel fluorescence imagery directly in the browser with GPU-accelerated pan, zoom, and channel controls.
 
-Designed to drop into [Curvenote](https://curvenote.com/) and [JupyterBook](https://jupyterbook.org/) pages via the `:::{any:bundle}` directive. Authors point to their OME-Zarr data, configure the viewer, and paste a markdown block into their article — no hosting or build step required on their end.
+Designed to drop into [Curvenote](https://curvenote.com/) pages via the `:::{any:bundle}` directive. Authors point to their OME-Zarr data, configure the viewer, and paste a markdown block into their article — no hosting or build step required on their end.
 
 ## Features
 
