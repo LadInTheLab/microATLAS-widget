@@ -1,0 +1,27 @@
+{
+  "name": "microatlas-widget",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build --config vite.lib.config.ts",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@hms-dbmi/viv": "^0.13.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "overrides": {
+    "@deck.gl/extensions": "8.8.27",
+    "@deck.gl/mesh-layers": "8.8.27"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}
