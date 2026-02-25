@@ -45,7 +45,7 @@ The builder generates a ready-to-paste `:::{any:bundle}` directive block. It loo
 
 ### 3. Paste into your article
 
-Drop the block into your Curvenote or JupyterBook markdown. The widget loads directly from GitHub Pages — your readers get an interactive viewer with no extra setup.
+Drop the block into your markdown. The widget loads directly from GitHub Pages — your readers get an interactive viewer with no extra setup.
 
 ## Configuration reference
 
