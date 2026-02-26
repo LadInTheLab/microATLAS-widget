@@ -108,11 +108,17 @@ function CrosshairIcon() {
 
 function generateMarkdown(
   source: string,
+  width: number,
+  height: number,
   views: SavedView[],
   annotations: Annotation[],
   scaleBar: ScaleBarConfig | false,
 ): string {
-  const config: Record<string, unknown> = { source };
+  const config: Record<string, unknown> = {
+    source,
+    width: `${width}px`,
+    height: `${height}px`,
+  };
   if (views.length > 0) {
     config.views = views.map(({ default: d, ...rest }) => d ? { ...rest, default: true } : rest);
   }
@@ -378,7 +384,7 @@ export function Builder() {
   const sizeValid = widthValid && heightValid;
 
   const markdown = sizeValid
-    ? generateMarkdown(source, views, annotations, scaleBar)
+    ? generateMarkdown(source, viewerWidth, viewerHeight, views, annotations, scaleBar)
     : '// Fix widget size errors above';
 
   const handleLoad = () => {

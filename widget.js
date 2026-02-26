@@ -17,10 +17,13 @@ export default {
     // Curvenote's el has no intrinsic height — create a sized, positioned
     // container so the viewer's position:absolute layout has something to fill.
     const container = document.createElement('div');
+    const width = model.get('width') ?? '100%';
+    const height = model.get('height') ?? '500px';
     Object.assign(container.style, {
       position: 'relative',
-      width: '100%',
-      height: model.get('height') ?? '500px',
+      width,
+      height,
+      margin: width !== '100%' ? '0 auto' : undefined,
       backgroundColor: 'black',
       borderRadius: '8px',
       overflow: 'hidden',
