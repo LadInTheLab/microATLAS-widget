@@ -14,6 +14,23 @@ export default {
     const scaleBar = model.get('scaleBar');
     if (scaleBar !== undefined) props.scaleBar = scaleBar;
 
-    return mount(el, props);
+    // Curvenote's el has no intrinsic height — create a sized, positioned
+    // container so the viewer's position:absolute layout has something to fill.
+    const container = document.createElement('div');
+    Object.assign(container.style, {
+      position: 'relative',
+      width: '100%',
+      height: model.get('height') ?? '500px',
+      backgroundColor: 'black',
+      borderRadius: '8px',
+      overflow: 'hidden',
+    });
+    el.appendChild(container);
+
+    const unmount = mount(container, props);
+    return () => {
+      unmount();
+      container.remove();
+    };
   },
 };
