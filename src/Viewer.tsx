@@ -714,7 +714,7 @@ function useAnnotationHover(
   return hoveredIdx;
 }
 
-function AnnotationOverlay({ annotations, visible, viewState, containerW, containerH, hoveredIdx }: {
+const AnnotationOverlay = memo(function AnnotationOverlay({ annotations, visible, viewState, containerW, containerH, hoveredIdx }: {
   annotations: Annotation[];
   visible: boolean;
   viewState: any;
@@ -779,7 +779,7 @@ function AnnotationOverlay({ annotations, visible, viewState, containerW, contai
       })}
     </div>
   );
-}
+});
 
 interface PhysicalScale {
   pixelSize: number;
@@ -846,7 +846,7 @@ const SCALE_BAR_DEFAULTS = {
   position: 'bottom-right' as const,
 };
 
-function ScaleBarOverlay({ physicalScale, viewState, config, visible }: {
+const ScaleBarOverlay = memo(function ScaleBarOverlay({ physicalScale, viewState, config, visible }: {
   physicalScale: PhysicalScale;
   viewState: any;
   config: Required<Pick<ScaleBarConfig, 'maxWidth' | 'position'>>;
@@ -898,11 +898,10 @@ function ScaleBarOverlay({ physicalScale, viewState, config, visible }: {
         background: 'rgba(255,255,255,0.9)',
         borderRadius: 1.5,
         boxShadow: '0 1px 4px rgba(0,0,0,0.6)',
-        transition: 'width 0.15s ease',
       }} />
     </div>
   );
-}
+});
 
 const OverlayMenu = memo(function OverlayMenu({ containerW, containerH, views, channels, blendMode, colormap, portalTarget, onToggleChannel, onColorChange, onContrastChange, onBlendModeChange, onColormapChange, onApplyAppearance, annotationsVisible, onAnnotationsVisibleChange, scaleBarVisible, onScaleBarVisibleChange, hasScaleBar, navigateTo }: OverlayMenuProps) {
   const [open, setOpen] = useState(false);
@@ -1152,6 +1151,10 @@ function useAnimatedNavigation(
   onViewStateChange?: (vs: any) => void,
 ) {
   const animRef = useRef<number | null>(null);
+  const viewStateRef = useRef(viewState);
+  viewStateRef.current = viewState;
+  const onChangeRef = useRef(onViewStateChange);
+  onChangeRef.current = onViewStateChange;
 
   const cancel = useCallback(() => {
     if (animRef.current != null) {
@@ -1163,10 +1166,10 @@ function useAnimatedNavigation(
   const navigateTo = useCallback(
     (dest: { zoom: number; target: [number, number, number] }) => {
       cancel();
-      const from = viewState;
+      const from = viewStateRef.current;
       if (!from) {
         setViewState(dest);
-        onViewStateChange?.(dest);
+        onChangeRef.current?.(dest);
         return;
       }
 
@@ -1187,7 +1190,7 @@ function useAnimatedNavigation(
         };
 
         setViewState(next);
-        onViewStateChange?.(next);
+        onChangeRef.current?.(next);
 
         if (raw < 1) {
           animRef.current = requestAnimationFrame(tick);
@@ -1198,7 +1201,7 @@ function useAnimatedNavigation(
 
       animRef.current = requestAnimationFrame(tick);
     },
-    [viewState, cancel, setViewState, onViewStateChange],
+    [cancel, setViewState],
   );
 
   useEffect(() => cancel, [cancel]);
@@ -1473,28 +1476,11 @@ export function MicroAtlasViewer({ source, views: externalViews, annotations: ex
     [fitView, externalViews],
   );
 
-  const renderContent = () => {
-    if (isLoading) {
-      return (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', fontSize: '0.85rem' }}>
-          Loading zarr&hellip;
-        </div>
-      );
-    }
-
-    if (error) {
-      return (
-        <div style={{ position: 'absolute', inset: 0, padding: '1rem', color: '#c0392b' }}>
-          <strong>Failed to load zarr</strong>
-          <pre style={{ whiteSpace: 'pre-wrap', color: '#888', fontSize: '0.75rem', marginTop: '0.5rem' }}>{error}</pre>
-        </div>
-      );
-    }
-
+  // Memoize layer so it's only rebuilt when visual props change, not on every viewState tick
+  const imageLayer = useMemo(() => {
     if (!loaded) return null;
-
     const { viv, data, metadata, numChannels, deckDeps } = loaded;
-    const { DeckGL, OrthographicView } = deckDeps;
+    const { OrthographicView } = deckDeps;
     const { MultiscaleImageLayer, ImageLayer, ColorPaletteExtension, AdditiveColormapExtension } = viv as any;
 
     const omeroChannels = metadata?.omero?.channels ?? [];
@@ -1538,7 +1524,7 @@ export function MicroAtlasViewer({ source, views: externalViews, annotations: ex
       viewsRef.current = [new OrthographicView({ id: 'ortho', controller: true })];
     }
 
-    const layer = new Layer({
+    return new Layer({
       loader,
       contrastLimits,
       colors,
@@ -1548,12 +1534,36 @@ export function MicroAtlasViewer({ source, views: externalViews, annotations: ex
       ...(isAdditive ? { colormap } : {}),
       id: 'microatlas-image',
     });
+  }, [loaded, contrastLimitsState, channelColors, channelsVisible, blendMode, colormap]);
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', fontSize: '0.85rem' }}>
+          Loading zarr&hellip;
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div style={{ position: 'absolute', inset: 0, padding: '1rem', color: '#c0392b' }}>
+          <strong>Failed to load zarr</strong>
+          <pre style={{ whiteSpace: 'pre-wrap', color: '#888', fontSize: '0.75rem', marginTop: '0.5rem' }}>{error}</pre>
+        </div>
+      );
+    }
+
+    if (!loaded || !imageLayer) return null;
+
+    const { deckDeps } = loaded;
+    const { DeckGL } = deckDeps;
 
     return (
       <>
         <DeckGL
           ref={deckRef}
-          layers={[layer]}
+          layers={[imageLayer]}
           viewState={viewState && { ortho: viewState }}
           onViewStateChange={handleDeckViewStateChange}
           views={viewsRef.current}
