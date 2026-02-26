@@ -9,18 +9,19 @@ export default defineConfig({
   plugins: [
     react(),
     {
-      // deck.gl throws a fatal error when it detects another version on
-      // globalThis.deck (e.g. Curvenote ships v9). Since we bundle our own
-      // copy, downgrade the throw to a console.warn so both can coexist.
-      name: 'patch-deckgl-version-check',
+      // deck.gl and luma.gl register on globalThis and throw fatal errors
+      // if they find a different version already there (e.g. Curvenote ships
+      // vis.gl v9). Redirect all globalThis.deck / globalThis.luma references
+      // to bundle-private objects so our copy is fully isolated from the host.
+      name: 'isolate-visgl-globals',
       renderChunk(code) {
-        const pattern = 'throw new Error("deck.gl - multiple versions detected: "';
-        if (code.includes(pattern)) {
-          return code.replace(
-            /throw new Error\("deck\.gl - multiple versions detected: "\.concat\((\w+), " vs "\)\.concat\((\w+)\)\)/,
-            'console.warn("deck.gl - multiple versions detected: ".concat($1, " vs ").concat($2))',
-          );
+        if (!code.includes('globalThis.deck') && !code.includes('globalThis.luma')) {
+          return;
         }
+        const header = 'let __deckNS, __lumaNS;\n';
+        return header + code
+          .replace(/globalThis\.deck\b/g, '__deckNS')
+          .replace(/globalThis\.luma\b/g, '__lumaNS');
       },
     },
     {
