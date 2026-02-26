@@ -9,6 +9,21 @@ export default defineConfig({
   plugins: [
     react(),
     {
+      // deck.gl throws a fatal error when it detects another version on
+      // globalThis.deck (e.g. Curvenote ships v9). Since we bundle our own
+      // copy, downgrade the throw to a console.warn so both can coexist.
+      name: 'patch-deckgl-version-check',
+      renderChunk(code) {
+        const pattern = 'throw new Error("deck.gl - multiple versions detected: "';
+        if (code.includes(pattern)) {
+          return code.replace(
+            /throw new Error\("deck\.gl - multiple versions detected: "\.concat\((\w+), " vs "\)\.concat\((\w+)\)\)/,
+            'console.warn("deck.gl - multiple versions detected: ".concat($1, " vs ").concat($2))',
+          );
+        }
+      },
+    },
+    {
       name: 'copy-widget',
       closeBundle() {
         copyFileSync(
