@@ -138,6 +138,9 @@ interface OverlayMenuProps {
   scaleBarVisible: boolean;
   onScaleBarVisibleChange: (visible: boolean) => void;
   hasScaleBar: boolean;
+  titleVisible: boolean;
+  onTitleVisibleChange: (visible: boolean) => void;
+  hasTitle: boolean;
   navigateTo: (dest: { zoom: number; target: [number, number, number] }) => void;
 }
 
@@ -846,10 +849,18 @@ const SCALE_BAR_DEFAULTS = {
   position: 'bottom-right' as const,
 };
 
+const SCALE_BAR_FONT_STACKS: Record<ScaleBarFont, string> = {
+  'Arial': "Arial, Helvetica, sans-serif",
+  'Helvetica': "Helvetica, Arial, sans-serif",
+  'Georgia': "Georgia, 'Times New Roman', serif",
+  'Times New Roman': "'Times New Roman', Times, serif",
+  'Courier New': "'Courier New', Courier, monospace",
+};
+
 const ScaleBarOverlay = memo(function ScaleBarOverlay({ physicalScale, viewState, config, visible }: {
   physicalScale: PhysicalScale;
   viewState: any;
-  config: Required<Pick<ScaleBarConfig, 'maxWidth' | 'position'>>;
+  config: Required<Pick<ScaleBarConfig, 'maxWidth' | 'position'>> & Pick<ScaleBarConfig, 'fontSize' | 'font' | 'color'>;
   visible: boolean;
 }) {
   if (!visible || !viewState) return null;
@@ -883,9 +894,10 @@ const ScaleBarOverlay = memo(function ScaleBarOverlay({ physicalScale, viewState
       alignItems: pos.includes('right') ? 'flex-end' : 'flex-start',
     }}>
       <div style={{
-        fontSize: 10,
+        fontSize: config.fontSize ?? 10,
+        fontFamily: SCALE_BAR_FONT_STACKS[config.font ?? 'Arial'],
         fontWeight: 600,
-        color: 'rgba(255,255,255,0.9)',
+        color: config.color ?? 'rgba(255,255,255,0.9)',
         textShadow: '0 1px 3px rgba(0,0,0,0.8)',
         marginBottom: 3,
         letterSpacing: '0.02em',
@@ -895,7 +907,7 @@ const ScaleBarOverlay = memo(function ScaleBarOverlay({ physicalScale, viewState
       <div style={{
         width: barWidthPx,
         height: 3,
-        background: 'rgba(255,255,255,0.9)',
+        background: config.color ?? 'rgba(255,255,255,0.9)',
         borderRadius: 1.5,
         boxShadow: '0 1px 4px rgba(0,0,0,0.6)',
       }} />
@@ -903,7 +915,7 @@ const ScaleBarOverlay = memo(function ScaleBarOverlay({ physicalScale, viewState
   );
 });
 
-const OverlayMenu = memo(function OverlayMenu({ containerW, containerH, views, channels, blendMode, colormap, portalTarget, onToggleChannel, onColorChange, onContrastChange, onBlendModeChange, onColormapChange, onApplyAppearance, annotationsVisible, onAnnotationsVisibleChange, scaleBarVisible, onScaleBarVisibleChange, hasScaleBar, navigateTo }: OverlayMenuProps) {
+const OverlayMenu = memo(function OverlayMenu({ containerW, containerH, views, channels, blendMode, colormap, portalTarget, onToggleChannel, onColorChange, onContrastChange, onBlendModeChange, onColormapChange, onApplyAppearance, annotationsVisible, onAnnotationsVisibleChange, scaleBarVisible, onScaleBarVisibleChange, hasScaleBar, titleVisible, onTitleVisibleChange, hasTitle, navigateTo }: OverlayMenuProps) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<PanelTab>('views');
 
@@ -1100,6 +1112,42 @@ const OverlayMenu = memo(function OverlayMenu({ containerW, containerH, views, c
                 </span>
               </button>
             )}
+            {hasTitle && (
+              <button
+                onClick={() => onTitleVisibleChange(!titleVisible)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  width: '100%',
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 8,
+                  padding: '6px 10px',
+                  marginTop: 6,
+                  cursor: 'pointer',
+                  color: 'inherit',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+              >
+                <span style={{
+                  display: 'flex', alignItems: 'center',
+                  color: titleVisible ? 'rgba(255,220,100,0.9)' : 'rgba(255,255,255,0.2)',
+                  transition: 'color 0.15s',
+                }}>
+                  <EyeIcon visible={titleVisible} />
+                </span>
+                <span style={{
+                  fontSize: 11, fontWeight: 500,
+                  color: titleVisible ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.35)',
+                  transition: 'color 0.15s',
+                }}>
+                  Title
+                </span>
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -1130,10 +1178,116 @@ export interface Annotation {
   color?: [number, number, number];
 }
 
+export type ScaleBarFont = 'Arial' | 'Helvetica' | 'Georgia' | 'Times New Roman' | 'Courier New';
+
 export interface ScaleBarConfig {
   maxWidth?: number;
   position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
+  fontSize?: number; // px, default 10
+  font?: ScaleBarFont;
+  color?: string;    // CSS color for text and bar, default 'rgba(255,255,255,0.9)'
 }
+
+export type TitlePosition = 'top-center' | 'top-left' | 'top-right' | 'bottom-center' | 'bottom-left' | 'bottom-right';
+
+export type TitleFont =
+  | 'Arial' | 'Helvetica' | 'Verdana' | 'Trebuchet MS' | 'Tahoma'
+  | 'Georgia' | 'Times New Roman' | 'Palatino'
+  | 'Courier New' | 'Lucida Console'
+  | 'Impact' | 'Arial Narrow' | 'Futura' | 'Century Gothic'
+  | 'Comic Sans MS';
+
+export interface TitleConfig {
+  text: string;
+  position?: TitlePosition;
+  margin?: number;    // px offset from edge, default 12
+  fontSize?: number;  // px, default 24
+  font?: TitleFont;
+  color?: string;     // CSS color, default 'rgba(255,255,255,0.95)'
+  style?: 'text' | 'pill'; // 'text' = bare text with shadow, 'pill' = glassmorphism container
+}
+
+const TITLE_FONT_STACKS: Record<TitleFont, string> = {
+  'Arial': "Arial, Helvetica, sans-serif",
+  'Helvetica': "Helvetica, Arial, sans-serif",
+  'Verdana': "Verdana, Geneva, sans-serif",
+  'Trebuchet MS': "'Trebuchet MS', Helvetica, sans-serif",
+  'Tahoma': "Tahoma, Verdana, sans-serif",
+  'Georgia': "Georgia, 'Times New Roman', serif",
+  'Times New Roman': "'Times New Roman', Times, serif",
+  'Palatino': "'Palatino Linotype', 'Book Antiqua', Palatino, serif",
+  'Courier New': "'Courier New', Courier, monospace",
+  'Lucida Console': "'Lucida Console', Monaco, monospace",
+  'Impact': "Impact, 'Arial Black', sans-serif",
+  'Arial Narrow': "'Arial Narrow', Arial, sans-serif",
+  'Futura': "Futura, 'Century Gothic', sans-serif",
+  'Century Gothic': "'Century Gothic', Futura, sans-serif",
+  'Comic Sans MS': "'Comic Sans MS', cursive, sans-serif",
+};
+
+const TitleOverlay = memo(function TitleOverlay({ config, visible }: {
+  config: TitleConfig;
+  visible: boolean;
+}) {
+  if (!visible) return null;
+
+  const pos = config.position ?? 'top-center';
+  const fontSize = config.fontSize ?? 24;
+  const fontFamily = TITLE_FONT_STACKS[config.font ?? 'Arial'];
+  const color = config.color ?? 'rgba(255,255,255,0.95)';
+  const margin = config.margin ?? 12;
+
+  const posStyle: React.CSSProperties = {
+    position: 'absolute',
+    ...(pos.includes('bottom') ? { bottom: margin } : { top: margin }),
+    ...(pos.includes('left') ? { left: margin } : {}),
+    ...(pos.includes('right') ? { right: margin } : {}),
+    ...(pos.includes('center') ? { left: '50%', transform: 'translateX(-50%)' } : {}),
+  };
+
+  const isPill = config.style === 'pill';
+  const textAlign = pos.includes('center') ? 'center' as const : pos.includes('right') ? 'right' as const : 'left' as const;
+
+  return (
+    <div style={{
+      ...posStyle,
+      pointerEvents: 'none',
+      textAlign,
+    }}>
+      {isPill ? (
+        <div style={{
+          display: 'inline-block',
+          ...GLASS,
+          borderRadius: Math.round(fontSize * 0.6),
+          padding: `${Math.round(fontSize * 0.3)}px ${Math.round(fontSize * 0.6)}px`,
+        }}>
+          <span style={{
+            fontSize,
+            fontFamily,
+            fontWeight: 700,
+            color,
+            lineHeight: 1.2,
+            wordBreak: 'break-word',
+          }}>
+            {config.text}
+          </span>
+        </div>
+      ) : (
+        <span style={{
+          fontSize,
+          fontFamily,
+          fontWeight: 700,
+          color,
+          textShadow: '0 1px 4px rgba(0,0,0,0.8), 0 0 12px rgba(0,0,0,0.5)',
+          lineHeight: 1.2,
+          wordBreak: 'break-word',
+        }}>
+          {config.text}
+        </span>
+      )}
+    </div>
+  );
+});
 
 function easeInOutCubic(t: number) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
@@ -1233,11 +1387,15 @@ export interface ViewerProps {
   views?: SavedView[];
   annotations?: Annotation[];
   scaleBar?: ScaleBarConfig | boolean;
+  title?: TitleConfig | string;
+  defaultAnnotationsVisible?: boolean;
+  defaultScaleBarVisible?: boolean;
+  defaultTitleVisible?: boolean;
   onViewStateChange?: (viewState: { zoom: number; target: [number, number, number] }) => void;
   onAppearanceChange?: (appearance: SavedViewAppearance) => void;
 }
 
-export function MicroAtlasViewer({ source, views: externalViews, annotations: externalAnnotations, scaleBar: scaleBarProp, onViewStateChange, onAppearanceChange }: ViewerProps) {
+export function MicroAtlasViewer({ source, views: externalViews, annotations: externalAnnotations, scaleBar: scaleBarProp, title: titleProp, defaultAnnotationsVisible, defaultScaleBarVisible, defaultTitleVisible, onViewStateChange, onAppearanceChange }: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const deckRef = useRef<any>(null);
   // Reuse extension/view instances so deck.gl doesn't diff new refs every render
@@ -1262,13 +1420,20 @@ export function MicroAtlasViewer({ source, views: externalViews, annotations: ex
   const [histograms, setHistograms] = useState<ChannelHistogramData[]>([]);
   const [blendMode, setBlendMode] = useState<BlendMode>('single');
   const [colormap, setColormap] = useState('viridis');
-  const [annotationsVisible, setAnnotationsVisible] = useState(true);
+  const [annotationsVisible, setAnnotationsVisible] = useState(defaultAnnotationsVisible ?? true);
   const annotationHoveredIdx = useAnnotationHover(containerRef, externalAnnotations ?? [], annotationsVisible, viewState, containerSize.w, containerSize.h);
-  const [scaleBarVisible, setScaleBarVisible] = useState(!!scaleBarProp);
+  const [scaleBarVisible, setScaleBarVisible] = useState(defaultScaleBarVisible ?? !!scaleBarProp);
+  const titleConfig: TitleConfig | null = typeof titleProp === 'string' ? { text: titleProp } : titleProp ?? null;
+  const [titleVisible, setTitleVisible] = useState(defaultTitleVisible ?? true);
   const [physicalScale, setPhysicalScale] = useState<PhysicalScale | null>(null);
-  const scaleBarConfig: Required<Pick<ScaleBarConfig, 'maxWidth' | 'position'>> = {
+  const scaleBarConfig: Required<Pick<ScaleBarConfig, 'maxWidth' | 'position'>> & Pick<ScaleBarConfig, 'fontSize' | 'font' | 'color'> = {
     maxWidth: (typeof scaleBarProp === 'object' ? scaleBarProp.maxWidth : undefined) ?? SCALE_BAR_DEFAULTS.maxWidth,
     position: (typeof scaleBarProp === 'object' ? scaleBarProp.position : undefined) ?? SCALE_BAR_DEFAULTS.position,
+    ...(typeof scaleBarProp === 'object' ? {
+      fontSize: scaleBarProp.fontSize,
+      font: scaleBarProp.font,
+      color: scaleBarProp.color,
+    } : {}),
   };
   const [loaded, setLoaded] = useState<{
     viv: VivModule;
@@ -1576,12 +1741,18 @@ export function MicroAtlasViewer({ source, views: externalViews, annotations: ex
           containerH={containerSize.h}
           hoveredIdx={annotationHoveredIdx}
         />
-        {physicalScale && (
+        {physicalScale && scaleBarProp && (
           <ScaleBarOverlay
             physicalScale={physicalScale}
             viewState={viewState}
             config={scaleBarConfig}
             visible={scaleBarVisible}
+          />
+        )}
+        {titleConfig && (
+          <TitleOverlay
+            config={titleConfig}
+            visible={titleVisible}
           />
         )}
       </>
@@ -1611,6 +1782,9 @@ export function MicroAtlasViewer({ source, views: externalViews, annotations: ex
           scaleBarVisible={scaleBarVisible}
           onScaleBarVisibleChange={setScaleBarVisible}
           hasScaleBar={!!physicalScale && !!scaleBarProp}
+          titleVisible={titleVisible}
+          onTitleVisibleChange={setTitleVisible}
+          hasTitle={!!titleConfig}
           navigateTo={navigateTo}
         />
       )}

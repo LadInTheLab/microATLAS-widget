@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MicroAtlasViewer, SavedView, SavedViewAppearance, Annotation, ScaleBarConfig } from '../src';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { MicroAtlasViewer, SavedView, SavedViewAppearance, Annotation, ScaleBarConfig, ScaleBarFont, TitleConfig, TitleFont } from '../src';
 
 const WIDGET_URL = 'https://LadInTheLab.github.io/microATLAS-widget/widget.js';
 const DEFAULT_SOURCE = 'https://barkley-replication.s3.us-east-2.amazonaws.com/experiment1/sample1.zarr/';
@@ -14,21 +14,102 @@ const POSITION_OPTIONS: ScaleBarConfig['position'][] = [
   'bottom-right', 'bottom-left', 'top-right', 'top-left',
 ];
 
-const ACCENT = 'rgb(99, 144, 240)';
-const ACCENT_15 = 'rgba(99, 144, 240, 0.15)';
-const ACCENT_25 = 'rgba(99, 144, 240, 0.25)';
-const ACCENT_40 = 'rgba(99, 144, 240, 0.40)';
-const SUCCESS = 'rgb(104, 211, 145)';
-const DANGER = 'rgb(235, 87, 87)';
-const SURFACE_0 = '#0c0c0f';
-const SURFACE_1 = '#131318';
-const SURFACE_2 = '#1a1a22';
-const SURFACE_3 = '#22222e';
-const BORDER = 'rgba(255,255,255,0.06)';
-const BORDER_HOVER = 'rgba(255,255,255,0.12)';
-const TEXT_1 = 'rgba(255,255,255,0.92)';
-const TEXT_2 = 'rgba(255,255,255,0.55)';
-const TEXT_3 = 'rgba(255,255,255,0.30)';
+const SCALE_BAR_FONT_OPTIONS: ScaleBarFont[] = [
+  'Arial', 'Helvetica', 'Georgia', 'Times New Roman', 'Courier New',
+];
+
+const SCALE_BAR_COLOR_SWATCHES = [
+  'rgba(255,255,255,0.9)',
+  'rgba(255,255,255,0.5)',
+  'rgba(0,0,0,0.85)',
+  'rgb(99,179,237)',
+  'rgb(104,211,145)',
+  'rgb(246,196,68)',
+];
+
+const TITLE_POSITION_OPTIONS: TitleConfig['position'][] = [
+  'top-center', 'top-left', 'top-right', 'bottom-center', 'bottom-left', 'bottom-right',
+];
+
+const TITLE_FONT_OPTIONS: TitleFont[] = [
+  'Arial', 'Helvetica', 'Verdana', 'Trebuchet MS', 'Tahoma',
+  'Georgia', 'Times New Roman', 'Palatino',
+  'Courier New', 'Lucida Console',
+  'Impact', 'Arial Narrow', 'Futura', 'Century Gothic',
+  'Comic Sans MS',
+];
+
+const TITLE_COLOR_SWATCHES = [
+  'rgba(255,255,255,0.95)',
+  'rgba(255,255,255,0.60)',
+  'rgba(0,0,0,0.85)',
+  'rgb(99,179,237)',
+  'rgb(104,211,145)',
+  'rgb(246,196,68)',
+  'rgb(235,87,87)',
+  'rgb(176,120,235)',
+];
+
+interface Theme {
+  accent: string;
+  accent15: string;
+  accent25: string;
+  accent40: string;
+  success: string;
+  danger: string;
+  surface0: string;
+  surface1: string;
+  surface2: string;
+  surface3: string;
+  border: string;
+  borderHover: string;
+  text1: string;
+  text2: string;
+  text3: string;
+  outputText: string;
+  ghostHover: string;
+}
+
+const DARK: Theme = {
+  accent: 'rgb(99, 144, 240)',
+  accent15: 'rgba(99, 144, 240, 0.15)',
+  accent25: 'rgba(99, 144, 240, 0.25)',
+  accent40: 'rgba(99, 144, 240, 0.40)',
+  success: 'rgb(104, 211, 145)',
+  danger: 'rgb(235, 87, 87)',
+  surface0: '#0c0c0f',
+  surface1: '#131318',
+  surface2: '#1a1a22',
+  surface3: '#22222e',
+  border: 'rgba(255,255,255,0.06)',
+  borderHover: 'rgba(255,255,255,0.12)',
+  text1: 'rgba(255,255,255,0.92)',
+  text2: 'rgba(255,255,255,0.55)',
+  text3: 'rgba(255,255,255,0.30)',
+  outputText: 'rgb(152, 220, 152)',
+  ghostHover: 'rgba(255,255,255,0.04)',
+};
+
+const LIGHT: Theme = {
+  accent: 'rgb(55, 100, 210)',
+  accent15: 'rgba(55, 100, 210, 0.10)',
+  accent25: 'rgba(55, 100, 210, 0.18)',
+  accent40: 'rgba(55, 100, 210, 0.30)',
+  success: 'rgb(34, 154, 82)',
+  danger: 'rgb(210, 55, 55)',
+  surface0: '#f4f5f7',
+  surface1: '#ffffff',
+  surface2: '#ebedf0',
+  surface3: '#dde0e6',
+  border: 'rgba(0,0,0,0.10)',
+  borderHover: 'rgba(0,0,0,0.18)',
+  text1: 'rgba(0,0,0,0.88)',
+  text2: 'rgba(0,0,0,0.55)',
+  text3: 'rgba(0,0,0,0.30)',
+  outputText: 'rgb(30, 120, 50)',
+  ghostHover: 'rgba(0,0,0,0.04)',
+};
+
 const RADIUS = 10;
 const RADIUS_SM = 7;
 const MONO = "'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace";
@@ -60,6 +141,14 @@ function RulerIcon() {
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
       <path d="M4 10h3" /><path d="M4 14h5" /><path d="M4 18h3" />
+    </svg>
+  );
+}
+
+function TypeIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="4 7 4 4 20 4 20 7" /><line x1="9" y1="20" x2="15" y2="20" /><line x1="12" y1="4" x2="12" y2="20" />
     </svg>
   );
 }
@@ -106,6 +195,26 @@ function CrosshairIcon() {
   );
 }
 
+function SunIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="5" />
+      <line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+      <line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" />
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  );
+}
+
 function generateMarkdown(
   source: string,
   width: number,
@@ -113,30 +222,36 @@ function generateMarkdown(
   views: SavedView[],
   annotations: Annotation[],
   scaleBar: ScaleBarConfig | false,
+  title: TitleConfig | false,
+  defaults: { annotations: boolean; scaleBar: boolean; title: boolean },
 ): string {
   const config: Record<string, unknown> = {
     source,
     width: `${width}px`,
     height: `${height}px`,
   };
+  if (title) config.title = title;
   if (views.length > 0) {
     config.views = views.map(({ default: d, ...rest }) => d ? { ...rest, default: true } : rest);
   }
   if (annotations.length > 0) config.annotations = annotations;
   if (scaleBar) config.scaleBar = scaleBar;
+  if (!defaults.annotations) config.defaultAnnotationsVisible = false;
+  if (!defaults.scaleBar) config.defaultScaleBarVisible = false;
+  if (!defaults.title) config.defaultTitleVisible = false;
   const json = JSON.stringify(config, null, 2);
   return `:::{any:bundle} ${WIDGET_URL}\n${json}\n:::`;
 }
 
-function SectionHeader({ icon, label, count }: { icon: React.ReactNode; label: string; count?: number }) {
+function SectionHeader({ icon, label, count, t }: { icon: React.ReactNode; label: string; count?: number; t: Theme }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-      <span style={{ color: TEXT_2, display: 'flex' }}>{icon}</span>
-      <span style={{ fontSize: 11, fontWeight: 600, color: TEXT_2, letterSpacing: '0.04em', textTransform: 'uppercase' }}>{label}</span>
+      <span style={{ color: t.text2, display: 'flex' }}>{icon}</span>
+      <span style={{ fontSize: 11, fontWeight: 600, color: t.text2, letterSpacing: '0.04em', textTransform: 'uppercase' }}>{label}</span>
       {count !== undefined && count > 0 && (
         <span style={{
-          fontSize: 10, fontWeight: 600, color: ACCENT,
-          background: ACCENT_15, borderRadius: 10,
+          fontSize: 10, fontWeight: 600, color: t.accent,
+          background: t.accent15, borderRadius: 10,
           padding: '1px 7px', marginLeft: 'auto',
         }}>
           {count}
@@ -146,12 +261,13 @@ function SectionHeader({ icon, label, count }: { icon: React.ReactNode; label: s
   );
 }
 
-function ActionButton({ onClick, disabled, children, variant = 'primary', fullWidth }: {
+function ActionButton({ onClick, disabled, children, variant = 'primary', fullWidth, t }: {
   onClick: () => void;
   disabled?: boolean;
   children: React.ReactNode;
   variant?: 'primary' | 'ghost';
   fullWidth?: boolean;
+  t: Theme;
 }) {
   const isPrimary = variant === 'primary';
   return (
@@ -164,13 +280,13 @@ function ActionButton({ onClick, disabled, children, variant = 'primary', fullWi
         justifyContent: 'center',
         gap: 6,
         width: fullWidth ? '100%' : undefined,
-        background: isPrimary ? ACCENT_15 : 'transparent',
-        border: `1px solid ${isPrimary ? ACCENT_40 : BORDER}`,
+        background: isPrimary ? t.accent15 : 'transparent',
+        border: `1px solid ${isPrimary ? t.accent40 : t.border}`,
         borderRadius: RADIUS_SM,
         padding: '7px 14px',
         fontSize: 12,
         fontWeight: 500,
-        color: isPrimary ? ACCENT : TEXT_2,
+        color: isPrimary ? t.accent : t.text2,
         cursor: disabled ? 'default' : 'pointer',
         fontFamily: 'inherit',
         opacity: disabled ? 0.35 : 1,
@@ -178,13 +294,13 @@ function ActionButton({ onClick, disabled, children, variant = 'primary', fullWi
       }}
       onMouseEnter={(e) => {
         if (!disabled) {
-          e.currentTarget.style.background = isPrimary ? ACCENT_25 : 'rgba(255,255,255,0.04)';
-          e.currentTarget.style.borderColor = isPrimary ? ACCENT : BORDER_HOVER;
+          e.currentTarget.style.background = isPrimary ? t.accent25 : t.ghostHover;
+          e.currentTarget.style.borderColor = isPrimary ? t.accent : t.borderHover;
         }
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = isPrimary ? ACCENT_15 : 'transparent';
-        e.currentTarget.style.borderColor = isPrimary ? ACCENT_40 : BORDER;
+        e.currentTarget.style.background = isPrimary ? t.accent15 : 'transparent';
+        e.currentTarget.style.borderColor = isPrimary ? t.accent40 : t.border;
       }}
     >
       {children}
@@ -192,13 +308,14 @@ function ActionButton({ onClick, disabled, children, variant = 'primary', fullWi
   );
 }
 
-function TextInput({ value, onChange, onEnter, placeholder, autoFocus, mono }: {
+function TextInput({ value, onChange, onEnter, placeholder, autoFocus, mono, t }: {
   value: string;
   onChange: (v: string) => void;
   onEnter?: () => void;
   placeholder?: string;
   autoFocus?: boolean;
   mono?: boolean;
+  t: Theme;
 }) {
   return (
     <input
@@ -210,55 +327,80 @@ function TextInput({ value, onChange, onEnter, placeholder, autoFocus, mono }: {
       autoFocus={autoFocus}
       style={{
         width: '100%',
-        background: SURFACE_2,
-        border: `1px solid ${BORDER}`,
+        background: t.surface2,
+        border: `1px solid ${t.border}`,
         borderRadius: RADIUS_SM,
         padding: '8px 10px',
         fontSize: 12,
-        color: TEXT_1,
+        color: t.text1,
         fontFamily: mono ? MONO : 'inherit',
         transition: 'border-color 0.15s',
       }}
-      onFocus={(e) => { e.currentTarget.style.borderColor = ACCENT_40; }}
-      onBlur={(e) => { e.currentTarget.style.borderColor = BORDER; }}
+      onFocus={(e) => { e.currentTarget.style.borderColor = t.accent40; }}
+      onBlur={(e) => { e.currentTarget.style.borderColor = t.border; }}
     />
   );
 }
 
-function NumberInput({ value, onChange, min, max, error }: {
+function NumberInput({ value, onChange, error, t }: {
   value: number;
   onChange: (v: number) => void;
-  min?: number;
-  max?: number;
   error?: boolean;
+  t: Theme;
 }) {
-  const borderColor = error ? DANGER : BORDER;
+  const [raw, setRaw] = useState(String(value));
+  const [focused, setFocused] = useState(false);
+
+  // Sync from parent when not focused (e.g. external reset)
+  useEffect(() => {
+    if (!focused) setRaw(String(value));
+  }, [value, focused]);
+
+  const borderColor = error ? t.danger : t.border;
   return (
     <input
-      type="number"
-      value={value}
-      onChange={(e) => onChange(Number(e.target.value) || 0)}
-      {...(min !== undefined ? { min } : {})}
-      {...(max !== undefined ? { max } : {})}
+      type="text"
+      inputMode="numeric"
+      value={raw}
+      onChange={(e) => {
+        const v = e.target.value;
+        setRaw(v);
+        const n = Number(v);
+        if (v !== '' && !isNaN(n)) onChange(n);
+      }}
+      onFocus={(e) => {
+        setFocused(true);
+        e.currentTarget.style.borderColor = error ? t.danger : t.accent40;
+      }}
+      onBlur={(e) => {
+        setFocused(false);
+        // Commit: if empty or invalid, revert to parent value
+        const n = Number(raw);
+        if (raw === '' || isNaN(n)) {
+          setRaw(String(value));
+        } else {
+          onChange(n);
+          setRaw(String(n));
+        }
+        e.currentTarget.style.borderColor = borderColor;
+      }}
       style={{
         width: '100%',
-        background: error ? 'rgba(235,87,87,0.06)' : SURFACE_2,
+        background: error ? 'rgba(235,87,87,0.06)' : t.surface2,
         border: `1px solid ${borderColor}`,
         borderRadius: RADIUS_SM,
         padding: '8px 10px',
         fontSize: 12,
-        color: TEXT_1,
+        color: t.text1,
         fontFamily: MONO,
         textAlign: 'center',
         transition: 'border-color 0.15s, background 0.15s',
       }}
-      onFocus={(e) => { e.currentTarget.style.borderColor = error ? DANGER : ACCENT_40; }}
-      onBlur={(e) => { e.currentTarget.style.borderColor = borderColor; }}
     />
   );
 }
 
-function ListItem({ children, onDelete }: { children: React.ReactNode; onDelete: () => void }) {
+function ListItem({ children, onDelete, t }: { children: React.ReactNode; onDelete: () => void; t: Theme }) {
   return (
     <div style={{
       display: 'flex',
@@ -266,12 +408,12 @@ function ListItem({ children, onDelete }: { children: React.ReactNode; onDelete:
       gap: 8,
       padding: '7px 8px',
       borderRadius: RADIUS_SM,
-      background: SURFACE_2,
+      background: t.surface2,
       marginBottom: 4,
       transition: 'background 0.12s',
     }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = SURFACE_3; }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = SURFACE_2; }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = t.surface3; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = t.surface2; }}
     >
       <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
         {children}
@@ -282,15 +424,15 @@ function ListItem({ children, onDelete }: { children: React.ReactNode; onDelete:
           background: 'none',
           border: 'none',
           cursor: 'pointer',
-          color: TEXT_3,
+          color: t.text3,
           padding: 4,
           borderRadius: 4,
           display: 'flex',
           alignItems: 'center',
           transition: 'color 0.15s, background 0.15s',
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.color = DANGER; e.currentTarget.style.background = 'rgba(235,87,87,0.1)'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.color = TEXT_3; e.currentTarget.style.background = 'none'; }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = t.danger; e.currentTarget.style.background = 'rgba(235,87,87,0.1)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = t.text3; e.currentTarget.style.background = 'none'; }}
         title="Remove"
       >
         <TrashIcon />
@@ -299,7 +441,7 @@ function ListItem({ children, onDelete }: { children: React.ReactNode; onDelete:
   );
 }
 
-function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+function ToggleSwitch({ checked, onChange, t }: { checked: boolean; onChange: (v: boolean) => void; t: Theme }) {
   return (
     <button
       onClick={() => onChange(!checked)}
@@ -308,7 +450,7 @@ function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (v: b
         height: 20,
         borderRadius: 10,
         border: 'none',
-        background: checked ? ACCENT : SURFACE_3,
+        background: checked ? t.accent : t.surface3,
         cursor: 'pointer',
         position: 'relative',
         transition: 'background 0.2s ease',
@@ -332,6 +474,15 @@ function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (v: b
 }
 
 export function Builder() {
+  const [isDark, setIsDark] = useState(() => {
+    try { return localStorage.getItem('builder-theme') !== 'light'; } catch { return true; }
+  });
+  const t = isDark ? DARK : LIGHT;
+
+  useEffect(() => {
+    try { localStorage.setItem('builder-theme', isDark ? 'dark' : 'light'); } catch {}
+  }, [isDark]);
+
   const [urlInput, setUrlInput] = useState(DEFAULT_SOURCE);
   const [source, setSource] = useState(DEFAULT_SOURCE);
 
@@ -342,6 +493,22 @@ export function Builder() {
   const [scaleBarEnabled, setScaleBarEnabled] = useState(false);
   const [scaleBarMaxWidth, setScaleBarMaxWidth] = useState(100);
   const [scaleBarPosition, setScaleBarPosition] = useState<ScaleBarConfig['position']>('bottom-right');
+  const [scaleBarFontSize, setScaleBarFontSize] = useState(10);
+  const [scaleBarFont, setScaleBarFont] = useState<ScaleBarFont>('Arial');
+  const [scaleBarColor, setScaleBarColor] = useState(SCALE_BAR_COLOR_SWATCHES[0]);
+
+  const [titleEnabled, setTitleEnabled] = useState(false);
+  const [titleText, setTitleText] = useState('');
+  const [titlePosition, setTitlePosition] = useState<TitleConfig['position']>('top-center');
+  const [titleMargin, setTitleMargin] = useState(12);
+  const [titleFontSize, setTitleFontSize] = useState(24);
+  const [titleFont, setTitleFont] = useState<TitleFont>('Arial');
+  const [titleColor, setTitleColor] = useState(TITLE_COLOR_SWATCHES[0]);
+  const [titleStyle, setTitleStyle] = useState<'text' | 'pill'>('text');
+
+  const [defaultAnnotationsVisible, setDefaultAnnotationsVisible] = useState(true);
+  const [defaultScaleBarVisible, setDefaultScaleBarVisible] = useState(true);
+  const [defaultTitleVisible, setDefaultTitleVisible] = useState(true);
 
   const viewStateRef = useRef<{ zoom: number; target: [number, number, number] } | null>(null);
   const [hasViewState, setHasViewState] = useState(false);
@@ -376,15 +543,28 @@ export function Builder() {
   }, [annotationMode]);
 
   const scaleBar: ScaleBarConfig | false = scaleBarEnabled
-    ? { maxWidth: scaleBarMaxWidth, position: scaleBarPosition }
+    ? { maxWidth: scaleBarMaxWidth, position: scaleBarPosition, fontSize: scaleBarFontSize, font: scaleBarFont, color: scaleBarColor }
+    : false;
+
+  const titleConfig: TitleConfig | false = titleEnabled && titleText.trim()
+    ? { text: titleText.trim(), position: titlePosition, margin: titleMargin, fontSize: titleFontSize, font: titleFont, color: titleColor, style: titleStyle }
     : false;
 
   const widthValid = viewerWidth >= 100 && viewerWidth <= 2000;
   const heightValid = viewerHeight >= 100 && viewerHeight <= 2000;
   const sizeValid = widthValid && heightValid;
 
+  const scaleBarMaxWidthValid = scaleBarMaxWidth >= 40 && scaleBarMaxWidth <= 300;
+  const scaleBarFontSizeValid = scaleBarFontSize >= 6 && scaleBarFontSize <= 48;
+  const titleFontSizeValid = titleFontSize >= 8 && titleFontSize <= 120;
+  const titleMarginValid = titleMargin >= 0 && titleMargin <= 200;
+
   const markdown = sizeValid
-    ? generateMarkdown(source, viewerWidth, viewerHeight, views, annotations, scaleBar)
+    ? generateMarkdown(source, viewerWidth, viewerHeight, views, annotations, scaleBar, titleConfig, {
+        annotations: defaultAnnotationsVisible,
+        scaleBar: defaultScaleBarVisible,
+        title: defaultTitleVisible,
+      })
     : '// Fix widget size errors above';
 
   const handleLoad = () => {
@@ -440,7 +620,7 @@ export function Builder() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', background: SURFACE_0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', background: t.surface0 }}>
 
       {/* ─── Header ─── */}
       <header style={{
@@ -448,14 +628,14 @@ export function Builder() {
         alignItems: 'center',
         gap: 16,
         padding: '12px 20px',
-        borderBottom: `1px solid ${BORDER}`,
+        borderBottom: `1px solid ${t.border}`,
         flexShrink: 0,
-        background: SURFACE_1,
+        background: t.surface1,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
           <div style={{
             width: 28, height: 28, borderRadius: 8,
-            background: `linear-gradient(135deg, ${ACCENT}, #a78bfa)`,
+            background: `linear-gradient(135deg, ${t.accent}, #a78bfa)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 14, fontWeight: 700, color: '#fff',
             boxShadow: '0 2px 8px rgba(99,144,240,0.3)',
@@ -463,31 +643,31 @@ export function Builder() {
             m
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_1, letterSpacing: '-0.02em', lineHeight: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: t.text1, letterSpacing: '-0.02em', lineHeight: 1 }}>
               microATLAS
             </div>
-            <div style={{ fontSize: 9, fontWeight: 500, color: TEXT_3, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 1 }}>
+            <div style={{ fontSize: 9, fontWeight: 500, color: t.text3, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 1 }}>
               Widget Builder
             </div>
           </div>
         </div>
 
-        <div style={{ width: 1, height: 24, background: BORDER, flexShrink: 0 }} />
+        <div style={{ width: 1, height: 24, background: t.border, flexShrink: 0 }} />
 
         <div style={{
           flex: 1,
           display: 'flex',
           alignItems: 'center',
-          background: SURFACE_2,
-          border: `1px solid ${BORDER}`,
+          background: t.surface2,
+          border: `1px solid ${t.border}`,
           borderRadius: RADIUS_SM,
           padding: '0 4px 0 12px',
           transition: 'border-color 0.15s',
         }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = ACCENT_40; }}
-          onBlur={(e) => { e.currentTarget.style.borderColor = BORDER; }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = t.accent40; }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = t.border; }}
         >
-          <span style={{ fontSize: 11, color: TEXT_3, whiteSpace: 'nowrap', marginRight: 6 }}>Source</span>
+          <span style={{ fontSize: 11, color: t.text3, whiteSpace: 'nowrap', marginRight: 6 }}>Source</span>
           <input
             type="text"
             value={urlInput}
@@ -500,7 +680,7 @@ export function Builder() {
               border: 'none',
               padding: '9px 4px',
               fontSize: 12,
-              color: TEXT_1,
+              color: t.text1,
               fontFamily: MONO,
               minWidth: 0,
             }}
@@ -508,7 +688,7 @@ export function Builder() {
           <button
             onClick={handleLoad}
             style={{
-              background: ACCENT,
+              background: t.accent,
               border: 'none',
               borderRadius: 5,
               padding: '6px 14px',
@@ -526,6 +706,28 @@ export function Builder() {
             Load
           </button>
         </div>
+
+        <button
+          onClick={() => setIsDark((d) => !d)}
+          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          style={{
+            background: 'transparent',
+            border: `1px solid ${t.border}`,
+            borderRadius: RADIUS_SM,
+            padding: '6px 8px',
+            cursor: 'pointer',
+            color: t.text2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = t.borderHover; e.currentTarget.style.color = t.text1; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.text2; }}
+        >
+          {isDark ? <SunIcon /> : <MoonIcon />}
+        </button>
       </header>
 
       {/* ─── Main ─── */}
@@ -534,7 +736,7 @@ export function Builder() {
         <div style={{
           flex: 1,
           overflow: 'auto',
-          background: `radial-gradient(ellipse at center, ${SURFACE_2} 0%, ${SURFACE_0} 70%)`,
+          background: `radial-gradient(ellipse at center, ${t.surface2} 0%, ${t.surface0} 70%)`,
           minWidth: 0,
         }}>
           <div style={{
@@ -566,6 +768,10 @@ export function Builder() {
                     views={views}
                     annotations={annotations}
                     scaleBar={scaleBar || undefined}
+                    title={titleConfig || undefined}
+                    defaultAnnotationsVisible={defaultAnnotationsVisible}
+                    defaultScaleBarVisible={defaultScaleBarVisible}
+                    defaultTitleVisible={defaultTitleVisible}
                     onViewStateChange={handleViewStateChange}
                     onAppearanceChange={handleAppearanceChange}
                   />
@@ -588,12 +794,12 @@ export function Builder() {
                       left: '50%',
                       transform: 'translateX(-50%)',
                       background: 'rgba(12,12,15,0.92)',
-                      border: `1px solid ${ACCENT_40}`,
+                      border: `1px solid ${t.accent40}`,
                       borderRadius: RADIUS,
                       padding: '8px 16px',
                       fontSize: 12,
                       fontWeight: 500,
-                      color: ACCENT,
+                      color: t.accent,
                       display: 'flex',
                       alignItems: 'center',
                       gap: 8,
@@ -603,12 +809,12 @@ export function Builder() {
                     }}>
                       <CrosshairIcon />
                       Click to place "{annotationName}"
-                      <span style={{ color: TEXT_3, fontSize: 11 }}>Esc to cancel</span>
+                      <span style={{ color: t.text3, fontSize: 11 }}>Esc to cancel</span>
                     </div>
                   </div>
                 )}
               </div>
-              <span style={{ fontSize: 11, color: TEXT_3, fontFamily: MONO }}>
+              <span style={{ fontSize: 11, color: t.text3, fontFamily: MONO }}>
                 {viewerWidth} x {viewerHeight}
               </span>
             </div>
@@ -619,8 +825,8 @@ export function Builder() {
         <div style={{
           width: 300,
           flexShrink: 0,
-          borderLeft: `1px solid ${BORDER}`,
-          background: SURFACE_1,
+          borderLeft: `1px solid ${t.border}`,
+          background: t.surface1,
           display: 'flex',
           flexDirection: 'column',
           overflowY: 'auto',
@@ -628,31 +834,31 @@ export function Builder() {
           <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 2 }}>
 
             <div style={{ marginBottom: 16 }}>
-              <SectionHeader icon={<MaximizeIcon />} label="Widget Size" />
+              <SectionHeader icon={<MaximizeIcon />} label="Widget Size" t={t} />
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 10, color: widthValid ? TEXT_3 : DANGER, marginBottom: 4 }}>Width</div>
-                  <NumberInput value={viewerWidth} onChange={setViewerWidth} error={!widthValid} />
+                  <div style={{ fontSize: 10, color: widthValid ? t.text3 : t.danger, marginBottom: 4 }}>Width</div>
+                  <NumberInput value={viewerWidth} onChange={setViewerWidth} error={!widthValid} t={t} />
                 </div>
-                <span style={{ fontSize: 12, color: TEXT_3, marginTop: 16 }}>x</span>
+                <span style={{ fontSize: 12, color: t.text3, marginTop: 16 }}>x</span>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 10, color: heightValid ? TEXT_3 : DANGER, marginBottom: 4 }}>Height</div>
-                  <NumberInput value={viewerHeight} onChange={setViewerHeight} error={!heightValid} />
+                  <div style={{ fontSize: 10, color: heightValid ? t.text3 : t.danger, marginBottom: 4 }}>Height</div>
+                  <NumberInput value={viewerHeight} onChange={setViewerHeight} error={!heightValid} t={t} />
                 </div>
               </div>
               {!sizeValid && (
-                <div style={{ fontSize: 10, color: DANGER, marginTop: 6 }}>
+                <div style={{ fontSize: 10, color: t.danger, marginTop: 6 }}>
                   Must be between 100 and 2000
                 </div>
               )}
             </div>
 
-            <div style={{ height: 1, background: BORDER, margin: '0 -16px 16px' }} />
+            <div style={{ height: 1, background: t.border, margin: '0 -16px 16px' }} />
 
             <div style={{ marginBottom: 16 }}>
-              <SectionHeader icon={<CameraIcon />} label="Saved Views" count={views.length} />
+              <SectionHeader icon={<CameraIcon />} label="Saved Views" count={views.length} t={t} />
               {views.map((v, i) => (
-                <ListItem key={i} onDelete={() => setViews((p) => p.filter((_, j) => j !== i))}>
+                <ListItem key={i} onDelete={() => setViews((p) => p.filter((_, j) => j !== i))} t={t}>
                   <button
                     onClick={() => setViews((p) => p.map((view, j) => ({
                       ...view,
@@ -661,8 +867,8 @@ export function Builder() {
                     title={v.default ? 'Remove as default view' : 'Set as default view'}
                     style={{
                       width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
-                      border: `1.5px solid ${v.default ? ACCENT : TEXT_3}`,
-                      background: v.default ? ACCENT : 'transparent',
+                      border: `1.5px solid ${v.default ? t.accent : t.text3}`,
+                      background: v.default ? t.accent : 'transparent',
                       cursor: 'pointer', padding: 0,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       transition: 'all 0.15s ease',
@@ -675,71 +881,71 @@ export function Builder() {
                     )}
                   </button>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 500, color: TEXT_1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: 12, fontWeight: 500, color: t.text1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {v.name}
                       {v.default && (
-                        <span style={{ fontSize: 9, color: ACCENT, marginLeft: 6, fontWeight: 600 }}>default</span>
+                        <span style={{ fontSize: 9, color: t.accent, marginLeft: 6, fontWeight: 600 }}>default</span>
                       )}
                       {v.appearance && (
-                        <span style={{ fontSize: 9, color: TEXT_3, marginLeft: 6, fontWeight: 400 }}>+ appearance</span>
+                        <span style={{ fontSize: 9, color: t.text3, marginLeft: 6, fontWeight: 400 }}>+ appearance</span>
                       )}
                     </div>
                     {v.description && (
-                      <div style={{ fontSize: 10, color: TEXT_3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>{v.description}</div>
+                      <div style={{ fontSize: 10, color: t.text3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>{v.description}</div>
                     )}
                   </div>
                 </ListItem>
               ))}
               {captureFormOpen ? (
-                <div style={{ background: SURFACE_2, borderRadius: RADIUS_SM, padding: 10, marginTop: 4 }}>
+                <div style={{ background: t.surface2, borderRadius: RADIUS_SM, padding: 10, marginTop: 4 }}>
                   <div style={{ marginBottom: 6 }}>
-                    <TextInput value={captureName} onChange={setCaptureName} onEnter={handleCaptureView} placeholder="View name" autoFocus />
+                    <TextInput value={captureName} onChange={setCaptureName} onEnter={handleCaptureView} placeholder="View name" autoFocus t={t} />
                   </div>
                   <div style={{ marginBottom: 8 }}>
-                    <TextInput value={captureDesc} onChange={setCaptureDesc} onEnter={handleCaptureView} placeholder="Description (optional)" />
+                    <TextInput value={captureDesc} onChange={setCaptureDesc} onEnter={handleCaptureView} placeholder="Description (optional)" t={t} />
                   </div>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer', fontSize: 12, color: TEXT_2 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer', fontSize: 12, color: t.text2 }}>
                     <input
                       type="checkbox"
                       checked={captureAppearance}
                       onChange={(e) => setCaptureAppearance(e.target.checked)}
-                      style={{ accentColor: ACCENT }}
+                      style={{ accentColor: t.accent }}
                     />
                     Save appearance
                   </label>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <ActionButton onClick={handleCaptureView} disabled={!captureName.trim() || !hasViewState}>Save</ActionButton>
-                    <ActionButton onClick={() => { setCaptureFormOpen(false); setCaptureName(''); setCaptureDesc(''); }} variant="ghost">Cancel</ActionButton>
+                    <ActionButton onClick={handleCaptureView} disabled={!captureName.trim() || !hasViewState} t={t}>Save</ActionButton>
+                    <ActionButton onClick={() => { setCaptureFormOpen(false); setCaptureName(''); setCaptureDesc(''); }} variant="ghost" t={t}>Cancel</ActionButton>
                   </div>
                 </div>
               ) : (
-                <ActionButton onClick={() => setCaptureFormOpen(true)} disabled={!hasViewState} fullWidth>
+                <ActionButton onClick={() => setCaptureFormOpen(true)} disabled={!hasViewState} fullWidth t={t}>
                   <CameraIcon /> Capture Current View
                 </ActionButton>
               )}
             </div>
 
-            <div style={{ height: 1, background: BORDER, margin: '0 -16px 16px' }} />
+            <div style={{ height: 1, background: t.border, margin: '0 -16px 16px' }} />
 
             <div style={{ marginBottom: 16 }}>
-              <SectionHeader icon={<PinIcon />} label="Annotations" count={annotations.length} />
+              <SectionHeader icon={<PinIcon />} label="Annotations" count={annotations.length} t={t} />
               {annotations.map((a, i) => (
-                <ListItem key={i} onDelete={() => setAnnotations((p) => p.filter((_, j) => j !== i))}>
+                <ListItem key={i} onDelete={() => setAnnotations((p) => p.filter((_, j) => j !== i))} t={t}>
                   <span style={{
                     width: 10, height: 10, borderRadius: '50%',
                     background: rgbStr(a.color ?? [235, 87, 87]),
                     flexShrink: 0,
                     boxShadow: `0 0 6px ${rgbStr(a.color ?? [235, 87, 87])}40`,
                   }} />
-                  <span style={{ fontSize: 12, fontWeight: 500, color: TEXT_1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: t.text1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {a.name}
                   </span>
                 </ListItem>
               ))}
               {annotationFormOpen && !annotationMode ? (
-                <div style={{ background: SURFACE_2, borderRadius: RADIUS_SM, padding: 10, marginTop: 4 }}>
+                <div style={{ background: t.surface2, borderRadius: RADIUS_SM, padding: 10, marginTop: 4 }}>
                   <div style={{ marginBottom: 8 }}>
-                    <TextInput value={annotationName} onChange={setAnnotationName} onEnter={handleStartAnnotationPlace} placeholder="Annotation name" autoFocus />
+                    <TextInput value={annotationName} onChange={setAnnotationName} onEnter={handleStartAnnotationPlace} placeholder="Annotation name" autoFocus t={t} />
                   </div>
                   <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 8 }}>
                     {COLOR_SWATCHES.map((c, i) => {
@@ -750,7 +956,7 @@ export function Builder() {
                           onClick={() => setAnnotationColor(c)}
                           style={{
                             width: 22, height: 22, borderRadius: 6,
-                            border: selected ? '2px solid #fff' : `1px solid ${BORDER}`,
+                            border: selected ? '2px solid #fff' : `1px solid ${t.border}`,
                             background: rgbStr(c),
                             cursor: 'pointer',
                             padding: 0,
@@ -763,75 +969,288 @@ export function Builder() {
                     })}
                   </div>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <ActionButton onClick={handleStartAnnotationPlace} disabled={!annotationName.trim() || !hasViewState}>
+                    <ActionButton onClick={handleStartAnnotationPlace} disabled={!annotationName.trim() || !hasViewState} t={t}>
                       <CrosshairIcon /> Place on Image
                     </ActionButton>
-                    <ActionButton onClick={() => { setAnnotationFormOpen(false); setAnnotationName(''); }} variant="ghost">Cancel</ActionButton>
+                    <ActionButton onClick={() => { setAnnotationFormOpen(false); setAnnotationName(''); }} variant="ghost" t={t}>Cancel</ActionButton>
                   </div>
                 </div>
               ) : !annotationMode ? (
-                <ActionButton onClick={() => setAnnotationFormOpen(true)} disabled={!hasViewState} fullWidth>
+                <ActionButton onClick={() => setAnnotationFormOpen(true)} disabled={!hasViewState} fullWidth t={t}>
                   <PinIcon /> Add Annotation
                 </ActionButton>
               ) : (
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: 8,
                   padding: '8px 10px', borderRadius: RADIUS_SM,
-                  background: ACCENT_15,
-                  border: `1px solid ${ACCENT_40}`,
+                  background: t.accent15,
+                  border: `1px solid ${t.accent40}`,
                   marginTop: 4,
                 }}>
                   <CrosshairIcon />
-                  <span style={{ fontSize: 11, color: ACCENT, fontWeight: 500 }}>Click on the image...</span>
+                  <span style={{ fontSize: 11, color: t.accent, fontWeight: 500 }}>Click on the image...</span>
                 </div>
               )}
             </div>
 
-            <div style={{ height: 1, background: BORDER, margin: '0 -16px 16px' }} />
+            <div style={{ height: 1, background: t.border, margin: '0 -16px 16px' }} />
 
-            <div>
+            <div style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <span style={{ color: TEXT_2, display: 'flex' }}><RulerIcon /></span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: TEXT_2, letterSpacing: '0.04em', textTransform: 'uppercase', flex: 1 }}>Scale Bar</span>
-                <ToggleSwitch checked={scaleBarEnabled} onChange={setScaleBarEnabled} />
+                <span style={{ color: t.text2, display: 'flex' }}><RulerIcon /></span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: t.text2, letterSpacing: '0.04em', textTransform: 'uppercase', flex: 1 }}>Scale Bar</span>
+                <ToggleSwitch checked={scaleBarEnabled} onChange={setScaleBarEnabled} t={t} />
               </div>
               {scaleBarEnabled && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 22 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 11, color: TEXT_2, whiteSpace: 'nowrap', width: 60 }}>Max width</span>
+                    <span style={{ fontSize: 11, color: t.text2, whiteSpace: 'nowrap', width: 60 }}>Max width</span>
                     <div style={{ width: 70 }}>
-                      <NumberInput value={scaleBarMaxWidth} onChange={setScaleBarMaxWidth} min={40} max={300} />
+                      <NumberInput value={scaleBarMaxWidth} onChange={setScaleBarMaxWidth} error={!scaleBarMaxWidthValid} t={t} />
                     </div>
-                    <span style={{ fontSize: 11, color: TEXT_3 }}>px</span>
+                    <span style={{ fontSize: 11, color: t.text3 }}>px</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 11, color: TEXT_2, whiteSpace: 'nowrap', width: 60 }}>Position</span>
+                    <span style={{ fontSize: 11, color: t.text2, whiteSpace: 'nowrap', width: 60 }}>Position</span>
                     <select
                       value={scaleBarPosition}
                       onChange={(e) => setScaleBarPosition(e.target.value as ScaleBarConfig['position'])}
                       style={{
                         flex: 1,
-                        background: SURFACE_2,
-                        border: `1px solid ${BORDER}`,
+                        background: t.surface2,
+                        border: `1px solid ${t.border}`,
                         borderRadius: RADIUS_SM,
                         padding: '7px 10px',
                         fontSize: 12,
-                        color: TEXT_1,
+                        color: t.text1,
                         fontFamily: 'inherit',
                         cursor: 'pointer',
                         transition: 'border-color 0.15s',
                       }}
-                      onFocus={(e) => { e.currentTarget.style.borderColor = ACCENT_40; }}
-                      onBlur={(e) => { e.currentTarget.style.borderColor = BORDER; }}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = t.accent40; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = t.border; }}
                     >
                       {POSITION_OPTIONS.map((p) => (
                         <option key={p} value={p}>{p}</option>
                       ))}
                     </select>
                   </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 11, color: scaleBarFontSizeValid ? t.text2 : t.danger, whiteSpace: 'nowrap', width: 60 }}>Text size</span>
+                    <div style={{ width: 70 }}>
+                      <NumberInput value={scaleBarFontSize} onChange={setScaleBarFontSize} error={!scaleBarFontSizeValid} t={t} />
+                    </div>
+                    <span style={{ fontSize: 11, color: t.text3 }}>px</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 11, color: t.text2, whiteSpace: 'nowrap', width: 60 }}>Font</span>
+                    <select
+                      value={scaleBarFont}
+                      onChange={(e) => setScaleBarFont(e.target.value as ScaleBarFont)}
+                      style={{
+                        flex: 1,
+                        background: t.surface2,
+                        border: `1px solid ${t.border}`,
+                        borderRadius: RADIUS_SM,
+                        padding: '7px 10px',
+                        fontSize: 12,
+                        color: t.text1,
+                        fontFamily: 'inherit',
+                        cursor: 'pointer',
+                        transition: 'border-color 0.15s',
+                      }}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = t.accent40; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = t.border; }}
+                    >
+                      {SCALE_BAR_FONT_OPTIONS.map((f) => (
+                        <option key={f} value={f}>{f}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: t.text3, marginBottom: 4 }}>Color</div>
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                      {SCALE_BAR_COLOR_SWATCHES.map((c) => {
+                        const selected = c === scaleBarColor;
+                        return (
+                          <button
+                            key={c}
+                            onClick={() => setScaleBarColor(c)}
+                            style={{
+                              width: 22, height: 22, borderRadius: 6,
+                              border: selected ? '2px solid #fff' : `1px solid ${t.border}`,
+                              background: c,
+                              cursor: 'pointer',
+                              padding: 0,
+                              transform: selected ? 'scale(1.15)' : 'scale(1)',
+                              transition: 'transform 0.12s, box-shadow 0.12s',
+                              boxShadow: selected ? `0 0 8px rgba(255,255,255,0.3)` : 'none',
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 11, color: t.text2, marginTop: 2 }}>
+                    <input type="checkbox" checked={defaultScaleBarVisible} onChange={(e) => setDefaultScaleBarVisible(e.target.checked)} style={{ accentColor: t.accent }} />
+                    Visible by default
+                  </label>
                 </div>
               )}
             </div>
+
+            <div style={{ height: 1, background: t.border, margin: '0 -16px 16px' }} />
+
+            {/* ─── Title ─── */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <span style={{ color: t.text2, display: 'flex' }}><TypeIcon /></span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: t.text2, letterSpacing: '0.04em', textTransform: 'uppercase', flex: 1 }}>Title</span>
+                <ToggleSwitch checked={titleEnabled} onChange={setTitleEnabled} t={t} />
+              </div>
+              {titleEnabled && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 22 }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: t.text3, marginBottom: 4 }}>Text</div>
+                    <TextInput value={titleText} onChange={setTitleText} placeholder="Enter title text" t={t} />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 11, color: t.text2, whiteSpace: 'nowrap', width: 60 }}>Style</span>
+                    <div style={{ display: 'flex', gap: 4, flex: 1 }}>
+                      {(['text', 'pill'] as const).map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => setTitleStyle(s)}
+                          style={{
+                            flex: 1,
+                            padding: '6px 0',
+                            fontSize: 11,
+                            fontWeight: 500,
+                            fontFamily: 'inherit',
+                            color: titleStyle === s ? t.accent : t.text2,
+                            background: titleStyle === s ? t.accent15 : t.surface2,
+                            border: `1px solid ${titleStyle === s ? t.accent40 : t.border}`,
+                            borderRadius: RADIUS_SM,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s',
+                            textTransform: 'capitalize',
+                          }}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 11, color: t.text2, whiteSpace: 'nowrap', width: 60 }}>Position</span>
+                    <select
+                      value={titlePosition}
+                      onChange={(e) => setTitlePosition(e.target.value as TitleConfig['position'])}
+                      style={{
+                        flex: 1,
+                        background: t.surface2,
+                        border: `1px solid ${t.border}`,
+                        borderRadius: RADIUS_SM,
+                        padding: '7px 10px',
+                        fontSize: 12,
+                        color: t.text1,
+                        fontFamily: 'inherit',
+                        cursor: 'pointer',
+                        transition: 'border-color 0.15s',
+                      }}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = t.accent40; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = t.border; }}
+                    >
+                      {TITLE_POSITION_OPTIONS.map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 11, color: titleFontSizeValid ? t.text2 : t.danger, whiteSpace: 'nowrap', width: 60 }}>Size</span>
+                    <div style={{ width: 70 }}>
+                      <NumberInput value={titleFontSize} onChange={setTitleFontSize} error={!titleFontSizeValid} t={t} />
+                    </div>
+                    <span style={{ fontSize: 11, color: t.text3 }}>px</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 11, color: titleMarginValid ? t.text2 : t.danger, whiteSpace: 'nowrap', width: 60 }}>Margin</span>
+                    <div style={{ width: 70 }}>
+                      <NumberInput value={titleMargin} onChange={setTitleMargin} error={!titleMarginValid} t={t} />
+                    </div>
+                    <span style={{ fontSize: 11, color: t.text3 }}>px</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 11, color: t.text2, whiteSpace: 'nowrap', width: 60 }}>Font</span>
+                    <select
+                      value={titleFont}
+                      onChange={(e) => setTitleFont(e.target.value as TitleFont)}
+                      style={{
+                        flex: 1,
+                        background: t.surface2,
+                        border: `1px solid ${t.border}`,
+                        borderRadius: RADIUS_SM,
+                        padding: '7px 10px',
+                        fontSize: 12,
+                        color: t.text1,
+                        fontFamily: 'inherit',
+                        cursor: 'pointer',
+                        transition: 'border-color 0.15s',
+                      }}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = t.accent40; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = t.border; }}
+                    >
+                      {TITLE_FONT_OPTIONS.map((f) => (
+                        <option key={f} value={f}>{f}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: t.text3, marginBottom: 4 }}>Color</div>
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                      {TITLE_COLOR_SWATCHES.map((c) => {
+                        const selected = c === titleColor;
+                        return (
+                          <button
+                            key={c}
+                            onClick={() => setTitleColor(c)}
+                            style={{
+                              width: 22, height: 22, borderRadius: 6,
+                              border: selected ? '2px solid #fff' : `1px solid ${t.border}`,
+                              background: c,
+                              cursor: 'pointer',
+                              padding: 0,
+                              transform: selected ? 'scale(1.15)' : 'scale(1)',
+                              transition: 'transform 0.12s, box-shadow 0.12s',
+                              boxShadow: selected ? `0 0 8px rgba(255,255,255,0.3)` : 'none',
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 11, color: t.text2, marginTop: 2 }}>
+                    <input type="checkbox" checked={defaultTitleVisible} onChange={(e) => setDefaultTitleVisible(e.target.checked)} style={{ accentColor: t.accent }} />
+                    Visible by default
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <div style={{ height: 1, background: t.border, margin: '0 -16px 16px' }} />
+
+            {/* ─── Default Visibility ─── */}
+            {annotations.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 10, fontWeight: 600, color: t.text3, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 8 }}>
+                  Default Visibility
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 11, color: t.text2, paddingLeft: 22 }}>
+                  <input type="checkbox" checked={defaultAnnotationsVisible} onChange={(e) => setDefaultAnnotationsVisible(e.target.checked)} style={{ accentColor: t.accent }} />
+                  Annotations visible by default
+                </label>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -839,19 +1258,19 @@ export function Builder() {
       {/* ─── Output bar ─── */}
       <div style={{
         flexShrink: 0,
-        borderTop: `1px solid ${BORDER}`,
+        borderTop: `1px solid ${t.border}`,
         display: 'flex',
         alignItems: 'stretch',
-        background: SURFACE_1,
+        background: t.surface1,
       }}>
         <div style={{
           padding: '10px 16px',
           display: 'flex',
           alignItems: 'center',
-          borderRight: `1px solid ${BORDER}`,
+          borderRight: `1px solid ${t.border}`,
           flexShrink: 0,
         }}>
-          <span style={{ fontSize: 10, fontWeight: 600, color: TEXT_3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Output</span>
+          <span style={{ fontSize: 10, fontWeight: 600, color: t.text3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Output</span>
         </div>
         <pre style={{
           flex: 1,
@@ -859,8 +1278,8 @@ export function Builder() {
           padding: '10px 16px',
           fontSize: 11.5,
           lineHeight: 1.6,
-          color: 'rgb(152, 220, 152)',
-          background: SURFACE_0,
+          color: t.outputText,
+          background: t.surface0,
           overflowX: 'auto',
           overflowY: 'auto',
           maxHeight: 180,
@@ -878,18 +1297,18 @@ export function Builder() {
             alignItems: 'center',
             justifyContent: 'center',
             gap: 6,
-            background: copied ? 'rgba(104,211,145,0.08)' : SURFACE_1,
+            background: copied ? 'rgba(104,211,145,0.08)' : t.surface1,
             border: 'none',
-            borderLeft: `1px solid ${BORDER}`,
-            color: copied ? SUCCESS : TEXT_2,
+            borderLeft: `1px solid ${t.border}`,
+            color: copied ? t.success : t.text2,
             fontSize: 12,
             fontWeight: 600,
             fontFamily: 'inherit',
             cursor: 'pointer',
             transition: 'all 0.2s ease',
           }}
-          onMouseEnter={(e) => { if (!copied) { e.currentTarget.style.background = SURFACE_2; e.currentTarget.style.color = TEXT_1; } }}
-          onMouseLeave={(e) => { if (!copied) { e.currentTarget.style.background = SURFACE_1; e.currentTarget.style.color = TEXT_2; } }}
+          onMouseEnter={(e) => { if (!copied) { e.currentTarget.style.background = t.surface2; e.currentTarget.style.color = t.text1; } }}
+          onMouseLeave={(e) => { if (!copied) { e.currentTarget.style.background = t.surface1; e.currentTarget.style.color = t.text2; } }}
         >
           {copied ? <><CheckIcon /> Copied</> : <><CopyIcon /> Copy</>}
         </button>

@@ -14,6 +14,18 @@ export default {
     const scaleBar = model.get('scaleBar');
     if (scaleBar !== undefined) props.scaleBar = scaleBar;
 
+    const title = model.get('title');
+    if (title !== undefined) props.title = title;
+
+    const defaultAnnotationsVisible = model.get('defaultAnnotationsVisible');
+    if (defaultAnnotationsVisible !== undefined) props.defaultAnnotationsVisible = defaultAnnotationsVisible;
+
+    const defaultScaleBarVisible = model.get('defaultScaleBarVisible');
+    if (defaultScaleBarVisible !== undefined) props.defaultScaleBarVisible = defaultScaleBarVisible;
+
+    const defaultTitleVisible = model.get('defaultTitleVisible');
+    if (defaultTitleVisible !== undefined) props.defaultTitleVisible = defaultTitleVisible;
+
     // Curvenote's el has no intrinsic height — create a sized, positioned
     // container so the viewer's position:absolute layout has something to fill.
     const container = document.createElement('div');
