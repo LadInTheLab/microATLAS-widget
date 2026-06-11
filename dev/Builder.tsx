@@ -68,6 +68,10 @@ interface Theme {
   text3: string;
   outputText: string;
   ghostHover: string;
+  /** Dot color for the stage's drafting-grid backdrop */
+  dot: string;
+  /** Shadow under the viewer card */
+  cardShadow: string;
 }
 
 const DARK: Theme = {
@@ -86,8 +90,10 @@ const DARK: Theme = {
   text1: 'rgba(255,255,255,0.92)',
   text2: 'rgba(255,255,255,0.55)',
   text3: 'rgba(255,255,255,0.30)',
-  outputText: 'rgb(152, 220, 152)',
+  outputText: 'rgba(255,255,255,0.75)',
   ghostHover: 'rgba(255,255,255,0.04)',
+  dot: 'rgba(255,255,255,0.055)',
+  cardShadow: '0 12px 40px -8px rgba(0,0,0,0.55)',
 };
 
 const LIGHT: Theme = {
@@ -106,8 +112,10 @@ const LIGHT: Theme = {
   text1: 'rgba(0,0,0,0.88)',
   text2: 'rgba(0,0,0,0.55)',
   text3: 'rgba(0,0,0,0.30)',
-  outputText: 'rgb(30, 120, 50)',
+  outputText: 'rgba(0,0,0,0.75)',
   ghostHover: 'rgba(0,0,0,0.04)',
+  dot: 'rgba(0,0,0,0.07)',
+  cardShadow: '0 12px 32px -8px rgba(15,23,42,0.18)',
 };
 
 const RADIUS = 10;
@@ -195,6 +203,19 @@ function CrosshairIcon() {
   );
 }
 
+/** Focus-frame mark: four corner brackets around a specimen dot. */
+function LogoGlyph({ color, accent }: { color: string; accent: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round">
+      <path d="M9 3H5a2 2 0 0 0-2 2v4" />
+      <path d="M15 3h4a2 2 0 0 1 2 2v4" />
+      <path d="M9 21H5a2 2 0 0 1-2-2v-4" />
+      <path d="M15 21h4a2 2 0 0 0 2-2v-4" />
+      <circle cx="12" cy="12" r="2.5" fill={accent} stroke="none" />
+    </svg>
+  );
+}
+
 function SunIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -243,6 +264,30 @@ function generateMarkdown(
   return `:::{any:bundle} ${WIDGET_URL}\n${json}\n:::`;
 }
 
+/** Inverse of generateMarkdown: extract the JSON config from a pasted
+ *  `:::{any:bundle}` block (or bare JSON). Returns null if the text doesn't
+ *  contain a config we recognize. Tolerant of surrounding whitespace and a
+ *  missing/foreign widget URL so blocks from older versions still import. */
+function parseConfigMarkdown(text: string): Record<string, any> | null {
+  const lines = text.trim().split('\n');
+  while (lines.length > 0 && lines[0].trim().startsWith(':::')) lines.shift();
+  while (lines.length > 0 && lines[lines.length - 1].trim() === ':::') lines.pop();
+  const body = lines.join('\n');
+  const first = body.indexOf('{');
+  const last = body.lastIndexOf('}');
+  if (first < 0 || last <= first) return null;
+  let config: unknown;
+  try {
+    config = JSON.parse(body.slice(first, last + 1));
+  } catch {
+    return null;
+  }
+  if (!config || typeof config !== 'object' || Array.isArray(config)) return null;
+  const cfg = config as Record<string, any>;
+  const known = ['source', 'width', 'height', 'views', 'annotations', 'scaleBar', 'title'];
+  return known.some((k) => k in cfg) ? cfg : null;
+}
+
 function SectionHeader({ icon, label, count, t }: { icon: React.ReactNode; label: string; count?: number; t: Theme }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -261,15 +306,27 @@ function SectionHeader({ icon, label, count, t }: { icon: React.ReactNode; label
   );
 }
 
+/** primary: solid accent, reserved for the committing action of a form.
+ *  secondary: quiet neutral, for entry points that open a form.
+ *  ghost: text-only, for cancel/dismiss. */
 function ActionButton({ onClick, disabled, children, variant = 'primary', fullWidth, t }: {
   onClick: () => void;
   disabled?: boolean;
   children: React.ReactNode;
-  variant?: 'primary' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'ghost';
   fullWidth?: boolean;
   t: Theme;
 }) {
-  const isPrimary = variant === 'primary';
+  const styles = {
+    primary: { background: t.accent, border: '1px solid transparent', color: '#fff' },
+    secondary: { background: t.surface2, border: `1px solid ${t.border}`, color: t.text1 },
+    ghost: { background: 'transparent', border: '1px solid transparent', color: t.text2 },
+  }[variant];
+  const hover = {
+    primary: { opacity: '0.88' },
+    secondary: { background: t.surface3, borderColor: t.borderHover },
+    ghost: { background: t.ghostHover, color: t.text1 },
+  }[variant];
   return (
     <button
       onClick={onClick}
@@ -280,31 +337,51 @@ function ActionButton({ onClick, disabled, children, variant = 'primary', fullWi
         justifyContent: 'center',
         gap: 6,
         width: fullWidth ? '100%' : undefined,
-        background: isPrimary ? t.accent15 : 'transparent',
-        border: `1px solid ${isPrimary ? t.accent40 : t.border}`,
+        ...styles,
         borderRadius: RADIUS_SM,
         padding: '7px 14px',
         fontSize: 12,
         fontWeight: 500,
-        color: isPrimary ? t.accent : t.text2,
         cursor: disabled ? 'default' : 'pointer',
         fontFamily: 'inherit',
         opacity: disabled ? 0.35 : 1,
         transition: 'all 0.15s ease',
       }}
-      onMouseEnter={(e) => {
-        if (!disabled) {
-          e.currentTarget.style.background = isPrimary ? t.accent25 : t.ghostHover;
-          e.currentTarget.style.borderColor = isPrimary ? t.accent : t.borderHover;
-        }
-      }}
+      onMouseEnter={(e) => { if (!disabled) Object.assign(e.currentTarget.style, hover); }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = isPrimary ? t.accent15 : 'transparent';
-        e.currentTarget.style.borderColor = isPrimary ? t.accent40 : t.border;
+        Object.assign(e.currentTarget.style, styles, { opacity: disabled ? '0.35' : '1' });
+        if (variant === 'ghost') e.currentTarget.style.color = t.text2;
       }}
     >
       {children}
     </button>
+  );
+}
+
+/** Round color swatch with a ring (not glow) selection state. ringOffset is
+ *  the background it sits on, so the ring reads as a gap + circle. */
+function Swatch({ color, selected, onSelect, ringOffset, t }: {
+  color: string;
+  selected: boolean;
+  onSelect: () => void;
+  ringOffset: string;
+  t: Theme;
+}) {
+  return (
+    <button
+      onClick={onSelect}
+      style={{
+        width: 18,
+        height: 18,
+        borderRadius: '50%',
+        border: `1px solid ${t.border}`,
+        background: color,
+        cursor: 'pointer',
+        padding: 0,
+        transition: 'box-shadow 0.12s',
+        boxShadow: selected ? `0 0 0 2px ${ringOffset}, 0 0 0 4px ${t.accent}` : 'none',
+      }}
+    />
   );
 }
 
@@ -694,6 +771,78 @@ export function Builder() {
     } catch { /* fallback */ }
   };
 
+  // ── Markdown import: paste a previously generated block into the output
+  // box to restore the whole builder state and resume editing that figure.
+  const [outputDraft, setOutputDraft] = useState<string | null>(null);
+  const [importFlash, setImportFlash] = useState<'imported' | null>(null);
+
+  const applyImportedConfig = (cfg: Record<string, any>) => {
+    const px = (v: unknown, fallback: number) => {
+      const n = typeof v === 'number' ? v : parseInt(String(v ?? ''), 10);
+      return isNaN(n) ? fallback : n;
+    };
+    if (typeof cfg.source === 'string' && cfg.source.trim() && cfg.source.trim() !== source) {
+      setUrlInput(cfg.source.trim());
+      setSource(cfg.source.trim());
+      viewStateRef.current = null;
+      setHasViewState(false);
+    }
+    setViewerWidth(px(cfg.width, 500));
+    setViewerHeight(px(cfg.height, 500));
+    setViews(Array.isArray(cfg.views) ? cfg.views : []);
+    setAnnotations(Array.isArray(cfg.annotations) ? cfg.annotations : []);
+
+    const sb = cfg.scaleBar;
+    setScaleBarEnabled(!!sb);
+    if (sb && typeof sb === 'object') {
+      setScaleBarMaxWidth(px(sb.maxWidth, 100));
+      setScaleBarPosition(sb.position ?? 'bottom-right');
+      setScaleBarFontSize(px(sb.fontSize, 10));
+      setScaleBarFont(sb.font ?? 'Arial');
+      setScaleBarColor(sb.color ?? SCALE_BAR_COLOR_SWATCHES[0]);
+    }
+
+    const ti = typeof cfg.title === 'string' ? { text: cfg.title } : cfg.title;
+    setTitleEnabled(!!ti?.text);
+    if (ti?.text) {
+      setTitleText(ti.text);
+      setTitlePosition(ti.position ?? 'top-center');
+      setTitleMargin(px(ti.margin, 12));
+      setTitleFontSize(px(ti.fontSize, 24));
+      setTitleFont(ti.font ?? 'Arial');
+      setTitleColor(ti.color ?? TITLE_COLOR_SWATCHES[0]);
+      setTitleStyle(ti.style ?? 'text');
+    }
+
+    setDefaultAnnotationsVisible(cfg.defaultAnnotationsVisible !== false);
+    setDefaultScaleBarVisible(cfg.defaultScaleBarVisible !== false);
+    setDefaultTitleVisible(cfg.defaultTitleVisible !== false);
+
+    setImportFlash('imported');
+    setTimeout(() => setImportFlash(null), 2500);
+  };
+
+  // Pasting a parseable block imports immediately; hand-edits are held as a
+  // draft and applied on blur if valid, otherwise quietly reverted.
+  const handleOutputPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const cfg = parseConfigMarkdown(e.clipboardData.getData('text'));
+    if (cfg) {
+      e.preventDefault();
+      applyImportedConfig(cfg);
+      setOutputDraft(null);
+    }
+  };
+
+  const handleOutputBlur = () => {
+    if (outputDraft !== null) {
+      const cfg = parseConfigMarkdown(outputDraft);
+      if (cfg) applyImportedConfig(cfg);
+      setOutputDraft(null);
+    }
+  };
+
+  const draftValid = outputDraft === null || parseConfigMarkdown(outputDraft) !== null;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', background: t.surface0 }}>
 
@@ -707,23 +856,11 @@ export function Builder() {
         flexShrink: 0,
         background: t.surface1,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: 8,
-            background: `linear-gradient(135deg, ${t.accent}, #a78bfa)`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, fontWeight: 700, color: '#fff',
-            boxShadow: '0 2px 8px rgba(99,144,240,0.3)',
-          }}>
-            m
-          </div>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: t.text1, letterSpacing: '-0.02em', lineHeight: 1 }}>
-              microATLAS
-            </div>
-            <div style={{ fontSize: 9, fontWeight: 500, color: t.text3, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 1 }}>
-              Widget Builder
-            </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0 }}>
+          <LogoGlyph color={t.text2} accent={t.accent} />
+          <div style={{ fontSize: 13, fontWeight: 600, color: t.text1, letterSpacing: '-0.01em' }}>
+            microATLAS
+            <span style={{ fontWeight: 400, color: t.text3, marginLeft: 7 }}>Builder</span>
           </div>
         </div>
 
@@ -811,7 +948,9 @@ export function Builder() {
         <div style={{
           flex: 1,
           overflow: 'auto',
-          background: `radial-gradient(ellipse at center, ${t.surface2} 0%, ${t.surface0} 70%)`,
+          backgroundColor: t.surface0,
+          backgroundImage: `radial-gradient(${t.dot} 1px, transparent 1px)`,
+          backgroundSize: '22px 22px',
           minWidth: 0,
         }}>
           <div style={{
@@ -832,8 +971,8 @@ export function Builder() {
                   background: '#000',
                   borderRadius: RADIUS + 2,
                   overflow: 'hidden',
-                  border: `1px solid rgba(255,255,255,0.06)`,
-                  boxShadow: '0 4px 24px rgba(0,0,0,0.4), 0 12px 48px rgba(0,0,0,0.2)',
+                  border: `1px solid ${t.border}`,
+                  boxShadow: t.cardShadow,
                 }}
               >
                 {source && (
@@ -1094,7 +1233,7 @@ export function Builder() {
                   </div>
                 </div>
               ) : (
-                <ActionButton onClick={() => setCaptureFormOpen(true)} disabled={!hasViewState} fullWidth t={t}>
+                <ActionButton onClick={() => setCaptureFormOpen(true)} disabled={!hasViewState} fullWidth variant="secondary" t={t}>
                   <CameraIcon /> Capture Current View
                 </ActionButton>
               )}
@@ -1146,26 +1285,17 @@ export function Builder() {
                   <div style={{ marginBottom: 8 }}>
                     <TextInput value={annotationName} onChange={setAnnotationName} onEnter={handleStartAnnotationPlace} placeholder="Annotation name" autoFocus t={t} />
                   </div>
-                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 8 }}>
-                    {COLOR_SWATCHES.map((c, i) => {
-                      const selected = c[0] === annotationColor[0] && c[1] === annotationColor[1] && c[2] === annotationColor[2];
-                      return (
-                        <button
-                          key={i}
-                          onClick={() => setAnnotationColor(c)}
-                          style={{
-                            width: 22, height: 22, borderRadius: 6,
-                            border: selected ? '2px solid #fff' : `1px solid ${t.border}`,
-                            background: rgbStr(c),
-                            cursor: 'pointer',
-                            padding: 0,
-                            transform: selected ? 'scale(1.15)' : 'scale(1)',
-                            transition: 'transform 0.12s, box-shadow 0.12s',
-                            boxShadow: selected ? `0 0 8px ${rgbStr(c)}60` : 'none',
-                          }}
-                        />
-                      );
-                    })}
+                  <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 10, padding: '2px 0' }}>
+                    {COLOR_SWATCHES.map((c, i) => (
+                      <Swatch
+                        key={i}
+                        color={rgbStr(c)}
+                        selected={c[0] === annotationColor[0] && c[1] === annotationColor[1] && c[2] === annotationColor[2]}
+                        onSelect={() => setAnnotationColor(c)}
+                        ringOffset={t.surface2}
+                        t={t}
+                      />
+                    ))}
                   </div>
                   {sliceRef.current && sliceRef.current.numZ > 1 && (
                     <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, cursor: 'pointer', fontSize: 12, color: t.text2 }}>
@@ -1203,7 +1333,7 @@ export function Builder() {
                   </div>
                 </div>
               ) : !annotationMode ? (
-                <ActionButton onClick={() => setAnnotationFormOpen(true)} disabled={!hasViewState} fullWidth t={t}>
+                <ActionButton onClick={() => setAnnotationFormOpen(true)} disabled={!hasViewState} fullWidth variant="secondary" t={t}>
                   <PinIcon /> Add Annotation
                 </ActionButton>
               ) : (
@@ -1296,26 +1426,10 @@ export function Builder() {
                   </div>
                   <div>
                     <div style={{ fontSize: 10, color: t.text3, marginBottom: 4 }}>Color</div>
-                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                      {SCALE_BAR_COLOR_SWATCHES.map((c) => {
-                        const selected = c === scaleBarColor;
-                        return (
-                          <button
-                            key={c}
-                            onClick={() => setScaleBarColor(c)}
-                            style={{
-                              width: 22, height: 22, borderRadius: 6,
-                              border: selected ? '2px solid #fff' : `1px solid ${t.border}`,
-                              background: c,
-                              cursor: 'pointer',
-                              padding: 0,
-                              transform: selected ? 'scale(1.15)' : 'scale(1)',
-                              transition: 'transform 0.12s, box-shadow 0.12s',
-                              boxShadow: selected ? `0 0 8px rgba(255,255,255,0.3)` : 'none',
-                            }}
-                          />
-                        );
-                      })}
+                    <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', padding: '2px 0' }}>
+                      {SCALE_BAR_COLOR_SWATCHES.map((c) => (
+                        <Swatch key={c} color={c} selected={c === scaleBarColor} onSelect={() => setScaleBarColor(c)} ringOffset={t.surface1} t={t} />
+                      ))}
                     </div>
                   </div>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 11, color: t.text2, marginTop: 2 }}>
@@ -1434,26 +1548,10 @@ export function Builder() {
                   </div>
                   <div>
                     <div style={{ fontSize: 10, color: t.text3, marginBottom: 4 }}>Color</div>
-                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                      {TITLE_COLOR_SWATCHES.map((c) => {
-                        const selected = c === titleColor;
-                        return (
-                          <button
-                            key={c}
-                            onClick={() => setTitleColor(c)}
-                            style={{
-                              width: 22, height: 22, borderRadius: 6,
-                              border: selected ? '2px solid #fff' : `1px solid ${t.border}`,
-                              background: c,
-                              cursor: 'pointer',
-                              padding: 0,
-                              transform: selected ? 'scale(1.15)' : 'scale(1)',
-                              transition: 'transform 0.12s, box-shadow 0.12s',
-                              boxShadow: selected ? `0 0 8px rgba(255,255,255,0.3)` : 'none',
-                            }}
-                          />
-                        );
-                      })}
+                    <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', padding: '2px 0' }}>
+                      {TITLE_COLOR_SWATCHES.map((c) => (
+                        <Swatch key={c} color={c} selected={c === titleColor} onSelect={() => setTitleColor(c)} ringOffset={t.surface1} t={t} />
+                      ))}
                     </div>
                   </div>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 11, color: t.text2, marginTop: 2 }}>
@@ -1482,63 +1580,82 @@ export function Builder() {
         </div>
       </div>
 
-      {/* ─── Output bar ─── */}
+      {/* ─── Output panel ─── */}
       <div style={{
         flexShrink: 0,
         borderTop: `1px solid ${t.border}`,
-        display: 'flex',
-        alignItems: 'stretch',
         background: t.surface1,
+        display: 'flex',
+        flexDirection: 'column',
       }}>
         <div style={{
-          padding: '10px 16px',
           display: 'flex',
           alignItems: 'center',
-          borderRight: `1px solid ${t.border}`,
-          flexShrink: 0,
+          gap: 12,
+          padding: '8px 16px 7px',
         }}>
-          <span style={{ fontSize: 10, fontWeight: 600, color: t.text3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Output</span>
+          <span style={{ fontSize: 10, fontWeight: 600, color: t.text2, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            Embed markdown
+          </span>
+          <span style={{
+            fontSize: 11,
+            color: importFlash ? t.success : outputDraft !== null && !draftValid ? t.danger : t.text3,
+            transition: 'color 0.2s',
+          }}>
+            {importFlash
+              ? 'Configuration imported'
+              : outputDraft !== null
+                ? (draftValid ? 'Editing — applies when you click away' : 'Not a valid config — reverts when you click away')
+                : 'Paste a previously generated block here to resume editing it'}
+          </span>
+          <button
+            onClick={handleCopy}
+            style={{
+              marginLeft: 'auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'transparent',
+              border: 'none',
+              borderRadius: RADIUS_SM,
+              padding: '4px 8px',
+              color: copied ? t.success : t.text2,
+              fontSize: 11.5,
+              fontWeight: 500,
+              fontFamily: 'inherit',
+              cursor: 'pointer',
+              transition: 'color 0.15s, background 0.15s',
+            }}
+            onMouseEnter={(e) => { if (!copied) { e.currentTarget.style.background = t.ghostHover; e.currentTarget.style.color = t.text1; } }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; if (!copied) e.currentTarget.style.color = t.text2; }}
+          >
+            {copied ? <><CheckIcon /> Copied</> : <><CopyIcon /> Copy</>}
+          </button>
         </div>
-        <pre style={{
-          flex: 1,
-          margin: 0,
-          padding: '10px 16px',
-          fontSize: 11.5,
-          lineHeight: 1.6,
-          color: t.outputText,
-          background: t.surface0,
-          overflowX: 'auto',
-          overflowY: 'auto',
-          maxHeight: 180,
-          whiteSpace: 'pre',
-          fontFamily: MONO,
-        }}>
-          {markdown}
-        </pre>
-        <button
-          onClick={handleCopy}
+        <textarea
+          value={outputDraft ?? markdown}
+          onChange={(e) => setOutputDraft(e.target.value)}
+          onPaste={handleOutputPaste}
+          onBlur={handleOutputBlur}
+          spellCheck={false}
+          rows={6}
           style={{
-            flexShrink: 0,
-            width: 100,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-            background: copied ? 'rgba(104,211,145,0.08)' : t.surface1,
+            display: 'block',
+            width: '100%',
+            margin: 0,
+            padding: '10px 16px',
+            fontSize: 11.5,
+            lineHeight: 1.6,
+            color: t.outputText,
+            background: t.surface0,
             border: 'none',
-            borderLeft: `1px solid ${t.border}`,
-            color: copied ? t.success : t.text2,
-            fontSize: 12,
-            fontWeight: 600,
-            fontFamily: 'inherit',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
+            borderTop: `1px solid ${t.border}`,
+            resize: 'none',
+            whiteSpace: 'pre',
+            overflow: 'auto',
+            fontFamily: MONO,
           }}
-          onMouseEnter={(e) => { if (!copied) { e.currentTarget.style.background = t.surface2; e.currentTarget.style.color = t.text1; } }}
-          onMouseLeave={(e) => { if (!copied) { e.currentTarget.style.background = t.surface1; e.currentTarget.style.color = t.text2; } }}
-        >
-          {copied ? <><CheckIcon /> Copied</> : <><CopyIcon /> Copy</>}
-        </button>
+        />
       </div>
     </div>
   );
