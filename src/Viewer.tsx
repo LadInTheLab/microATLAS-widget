@@ -33,7 +33,7 @@ const GLASS: React.CSSProperties = {
   WebkitBackdropFilter: 'blur(16px)',
 };
 
-const VERSION = '1.4.4';
+const VERSION = '1.4.5';
 
 const BTN_SIZE = 28;
 const INSET = 6;
@@ -493,7 +493,6 @@ interface OverlayMenuProps {
   onContrastChange: (index: number, limits: [number, number]) => void;
   onBlendModeChange: (mode: BlendMode) => void;
   onColormapChange: (colormap: string) => void;
-  onApplyAppearance: (appearance: SavedViewAppearance) => void;
   annotationsVisible: boolean;
   onAnnotationsVisibleChange: (visible: boolean) => void;
   scaleBarVisible: boolean;
@@ -502,7 +501,6 @@ interface OverlayMenuProps {
   titleVisible: boolean;
   onTitleVisibleChange: (visible: boolean) => void;
   hasTitle: boolean;
-  navigateTo: (dest: { zoom: number; target: [number, number, number] }) => void;
   onViewSelect: (view: SavedView) => void;
 }
 
@@ -1416,7 +1414,7 @@ const ScaleBarOverlay = memo(function ScaleBarOverlay({ physicalScale, viewState
   );
 });
 
-const OverlayMenu = memo(function OverlayMenu({ open, onToggle, containerW, containerH, views, channels, blendMode, colormap, portalTarget, onToggleChannel, onColorChange, onContrastChange, onBlendModeChange, onColormapChange, onApplyAppearance, annotationsVisible, onAnnotationsVisibleChange, scaleBarVisible, onScaleBarVisibleChange, hasScaleBar, titleVisible, onTitleVisibleChange, hasTitle, navigateTo, onViewSelect }: OverlayMenuProps) {
+const OverlayMenu = memo(function OverlayMenu({ open, onToggle, containerW, containerH, views, channels, blendMode, colormap, portalTarget, onToggleChannel, onColorChange, onContrastChange, onBlendModeChange, onColormapChange, annotationsVisible, onAnnotationsVisibleChange, scaleBarVisible, onScaleBarVisibleChange, hasScaleBar, titleVisible, onTitleVisibleChange, hasTitle, onViewSelect }: OverlayMenuProps) {
   const [activeTab, setActiveTab] = useState<PanelTab>('views');
 
   const panelW = clamp(containerW - PANEL_MARGIN, PANEL_MIN_W, PANEL_MAX_W);
@@ -2092,6 +2090,17 @@ function useAnimatedNavigation(
   return { navigateTo, cancelAnimation: cancel };
 }
 
+/** Active T-playback loops across all viewer instances on the page. Each
+ *  playing viewer holds the lowest free slot, which determines its phase
+ *  offset so simultaneous players don't all advance in the same frame. */
+const activePlaybackSlots = new Set<number>();
+function acquirePlaybackSlot(): number {
+  let slot = 0;
+  while (activePlaybackSlots.has(slot)) slot++;
+  activePlaybackSlots.add(slot);
+  return slot;
+}
+
 function useContainerSize(ref: React.RefObject<HTMLElement | null>) {
   const [size, setSize] = useState(() => {
     const el = ref.current;
@@ -2125,7 +2134,10 @@ export interface ViewerProps {
   onSliceChange?: (slice: { z: number; t: number; playing: boolean; fps: number; numZ: number; numT: number }) => void;
 }
 
+const EMPTY_ANNOTATIONS: Annotation[] = [];
+
 export function MicroAtlasViewer({ source, views: externalViews, annotations: externalAnnotations, scaleBar: scaleBarProp, title: titleProp, defaultAnnotationsVisible, defaultScaleBarVisible, defaultTitleVisible, onViewStateChange, onAppearanceChange, onSliceChange }: ViewerProps) {
+  const annotations = externalAnnotations ?? EMPTY_ANNOTATIONS;
   const containerRef = useRef<HTMLDivElement>(null);
   const deckRef = useRef<any>(null);
   // Reuse extension/view instances so deck.gl doesn't diff new refs every render
@@ -2156,9 +2168,12 @@ export function MicroAtlasViewer({ source, views: externalViews, annotations: ex
   const [colormap, setColormap] = useState('viridis');
   const [annotationsVisible, setAnnotationsVisible] = useState(defaultAnnotationsVisible ?? true);
   const sliceFilterRef = useRef<{ currentZ: number; currentT: number }>({ currentZ: 0, currentT: 0 });
-  const { hoveredIdx: annotationHoveredIdx, pressedIdx: annotationPressedIdx } = useAnnotationHover(containerRef, externalAnnotations ?? [], annotationsVisible, viewState, containerSize.w, containerSize.h, sliceFilterRef);
+  const { hoveredIdx: annotationHoveredIdx, pressedIdx: annotationPressedIdx } = useAnnotationHover(containerRef, annotations, annotationsVisible, viewState, containerSize.w, containerSize.h, sliceFilterRef);
   const [scaleBarVisible, setScaleBarVisible] = useState(defaultScaleBarVisible ?? !!scaleBarProp);
-  const titleConfig: TitleConfig | null = typeof titleProp === 'string' ? { text: titleProp } : titleProp ?? null;
+  const titleConfig = useMemo<TitleConfig | null>(
+    () => typeof titleProp === 'string' ? { text: titleProp } : titleProp ?? null,
+    [titleProp],
+  );
   const [titleVisible, setTitleVisible] = useState(defaultTitleVisible ?? true);
   const [physicalScale, setPhysicalScale] = useState<PhysicalScale | null>(null);
   const [currentZ, setCurrentZ] = useState(0);
@@ -2170,7 +2185,7 @@ export function MicroAtlasViewer({ source, views: externalViews, annotations: ex
   const onSliceChangeRef = useRef(onSliceChange);
   onSliceChangeRef.current = onSliceChange;
   const cachingStoreRef = useRef<CachingStore | null>(null);
-  const scaleBarConfig: Required<Pick<ScaleBarConfig, 'maxWidth' | 'position'>> & Pick<ScaleBarConfig, 'fontSize' | 'font' | 'color'> = {
+  const scaleBarConfig = useMemo<Required<Pick<ScaleBarConfig, 'maxWidth' | 'position'>> & Pick<ScaleBarConfig, 'fontSize' | 'font' | 'color'>>(() => ({
     maxWidth: (typeof scaleBarProp === 'object' ? scaleBarProp.maxWidth : undefined) ?? SCALE_BAR_DEFAULTS.maxWidth,
     position: (typeof scaleBarProp === 'object' ? scaleBarProp.position : undefined) ?? SCALE_BAR_DEFAULTS.position,
     ...(typeof scaleBarProp === 'object' ? {
@@ -2178,7 +2193,7 @@ export function MicroAtlasViewer({ source, views: externalViews, annotations: ex
       font: scaleBarProp.font,
       color: scaleBarProp.color,
     } : {}),
-  };
+  }), [scaleBarProp]);
   const [loaded, setLoaded] = useState<{
     viv: VivModule;
     data: any[];
@@ -2331,9 +2346,11 @@ export function MicroAtlasViewer({ source, views: externalViews, annotations: ex
   }, [loaded]);
 
   // Per-channel histograms (computed from lowest resolution for speed)
-  // Recomputes when Z or T slice changes so contrast histograms reflect the active slice
+  // Recomputes when Z or T slice changes so contrast histograms reflect the active slice.
+  // Skipped during playback — the per-frame raster fetches would compete with tile
+  // loading (and reset the playback loop's idle detection); recomputes on pause.
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || tPlaying) return;
     const { data, numChannels, dimLabels } = loaded;
     const lowestRes = data[data.length - 1];
     let cancelled = false;
@@ -2351,7 +2368,7 @@ export function MicroAtlasViewer({ source, views: externalViews, annotations: ex
     }).catch(() => { /* histogram is optional, fail silently */ });
 
     return () => { cancelled = true; };
-  }, [loaded, currentZ, currentT]);
+  }, [loaded, currentZ, currentT, tPlaying]);
 
   // Prefetch adjacent Z/T slices in the background after the current slice loads.
   // Skipped during playback — the playback loop itself ensures each slice loads.
@@ -2391,9 +2408,11 @@ export function MicroAtlasViewer({ source, views: externalViews, annotations: ex
     if (!tPlaying || !loaded || loaded.numT <= 1) return;
     const numT = loaded.numT;
     const store = cachingStoreRef.current;
+    const slot = acquirePlaybackSlot();
     let cancelled = false;
 
     const playLoop = async () => {
+      const interval = 1000 / tFps;
       while (!cancelled) {
         const frameStart = performance.now();
 
@@ -2410,16 +2429,31 @@ export function MicroAtlasViewer({ source, views: externalViews, annotations: ex
         }
 
         // Maintain target fps: wait any remaining interval time
-        const elapsed = performance.now() - frameStart;
-        const remaining = Math.max(0, (1000 / tFps) - elapsed);
-        if (remaining > 0) {
-          await new Promise<void>(r => setTimeout(r, remaining));
+        const now = performance.now();
+        let sleep = Math.max(0, interval - (now - frameStart));
+
+        // When other players are active, nudge the wake-up toward this
+        // player's phase slot so concurrent widgets don't advance (render +
+        // decode + upload textures) in the same browser frame. Loops tend to
+        // fall into lockstep when they contend for network or main thread;
+        // this re-staggers them every frame. Adjustment is capped at half an
+        // interval so the achieved fps stays close to target.
+        const playerCount = activePlaybackSlots.size;
+        if (playerCount > 1) {
+          const phase = (slot % playerCount) * (interval / playerCount);
+          const misalign = (((phase - (now + sleep)) % interval) + interval) % interval;
+          if (misalign <= interval / 2) sleep += misalign;
+          else sleep = Math.max(0, sleep - (interval - misalign));
+        }
+
+        if (sleep > 0) {
+          await new Promise<void>(r => setTimeout(r, sleep));
         }
       }
     };
 
     playLoop();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; activePlaybackSlots.delete(slot); };
   }, [tPlaying, tFps, loaded]);
 
   const handleToggleChannel = useCallback((index: number) => {
@@ -2499,6 +2533,38 @@ export function MicroAtlasViewer({ source, views: externalViews, annotations: ex
     () => [...(fitView ? [fitView] : []), ...(externalViews ?? [])],
     [fitView, externalViews],
   );
+
+  // Stable object so the memoized OverlayMenu doesn't re-render on every
+  // playback frame. `loaded` is a dep so containerRef.current (set on the
+  // first commit) is picked up by the time the toolbar renders.
+  const menuProps = useMemo<Omit<OverlayMenuProps, 'open' | 'onToggle'>>(() => ({
+    containerW: containerSize.w,
+    containerH: containerSize.h,
+    views: menuViews,
+    channels: channelInfos,
+    blendMode,
+    colormap,
+    portalTarget: containerRef.current,
+    onToggleChannel: handleToggleChannel,
+    onColorChange: handleColorChange,
+    onContrastChange: handleContrastChange,
+    onBlendModeChange: setBlendMode,
+    onColormapChange: setColormap,
+    annotationsVisible,
+    onAnnotationsVisibleChange: setAnnotationsVisible,
+    scaleBarVisible,
+    onScaleBarVisibleChange: setScaleBarVisible,
+    hasScaleBar: !!physicalScale && !!scaleBarProp,
+    titleVisible,
+    onTitleVisibleChange: setTitleVisible,
+    hasTitle: !!titleConfig,
+    onViewSelect: handleViewSelect,
+  }), [
+    containerSize.w, containerSize.h, menuViews, channelInfos, blendMode, colormap,
+    handleToggleChannel, handleColorChange, handleContrastChange,
+    annotationsVisible, scaleBarVisible, physicalScale, scaleBarProp,
+    titleVisible, titleConfig, handleViewSelect, loaded,
+  ]);
 
   // Memoize layer so it's only rebuilt when visual props change, not on every viewState tick
   const imageLayer = useMemo(() => {
@@ -2594,7 +2660,7 @@ export function MicroAtlasViewer({ source, views: externalViews, annotations: ex
           views={viewsRef.current}
         />
         <AnnotationOverlay
-          annotations={externalAnnotations ?? []}
+          annotations={annotations}
           visible={annotationsVisible}
           currentZ={currentZ}
           currentT={currentT}
@@ -2638,31 +2704,7 @@ export function MicroAtlasViewer({ source, views: externalViews, annotations: ex
           onTPlayingChange={setTPlaying}
           onTFpsChange={setTFps}
           containerW={containerSize.w}
-          menuProps={{
-            containerW: containerSize.w,
-            containerH: containerSize.h,
-            views: menuViews,
-            channels: channelInfos,
-            blendMode,
-            colormap,
-            portalTarget: containerRef.current,
-            onToggleChannel: handleToggleChannel,
-            onColorChange: handleColorChange,
-            onContrastChange: handleContrastChange,
-            onBlendModeChange: setBlendMode,
-            onColormapChange: setColormap,
-            onApplyAppearance: handleApplyAppearance,
-            annotationsVisible,
-            onAnnotationsVisibleChange: setAnnotationsVisible,
-            scaleBarVisible,
-            onScaleBarVisibleChange: setScaleBarVisible,
-            hasScaleBar: !!physicalScale && !!scaleBarProp,
-            titleVisible,
-            onTitleVisibleChange: setTitleVisible,
-            hasTitle: !!titleConfig,
-            navigateTo,
-            onViewSelect: handleViewSelect,
-          }}
+          menuProps={menuProps}
         />
       )}
     </div>
